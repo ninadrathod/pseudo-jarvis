@@ -250,6 +250,38 @@ nav a:hover {
   margin-top: 2rem;
 }
 
+.site-disclaimer {
+  max-width: 680px;
+  margin: 1.75rem auto 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  border-radius: var(--radius);
+  background: rgba(167, 139, 250, 0.08);
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.site-disclaimer strong {
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.site-disclaimer code {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--cyan);
+}
+
+.disclaimer-inline {
+  display: block;
+  margin-top: 0.65rem;
+  font-size: 0.88rem;
+  color: var(--purple);
+  font-style: normal;
+}
+
 .pill {
   font-size: 0.8rem;
   padding: 0.35rem 0.75rem;

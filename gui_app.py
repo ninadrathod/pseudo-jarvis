@@ -26,9 +26,32 @@ from app.session import run_session
 from app.voice_to_text import VoiceToText
 
 STARTUP_HINT = (
-    "To use pseudo-jarvis with a Cursor project, add that project's root folder "
-    "below. Only subscribed projects receive the voice rule and appear in your list."
+    "Subscribe each Cursor project once below — only added roots receive the voice rule."
 )
+
+# Light theme palette
+BG = "#f4f6f9"
+SURFACE = "#ffffff"
+SURFACE_2 = "#eef1f6"
+BORDER = "#c8d0dc"
+TEXT = "#15202b"
+MUTED = "#5a6573"
+ACCENT = "#0077b6"
+ACCENT_HOVER = "#0096c7"
+ACCENT_FG = "#ffffff"
+SECTION = "#0f4c6e"
+GREEN = "#1b8a4a"
+RED = "#c0392b"
+RED_BG = "#fdecea"
+
+FONT_UI = ("SF Pro Text", 14)
+FONT_UI_BOLD = ("SF Pro Text", 14, "bold")
+FONT_UI_SM = ("SF Pro Text", 13, "bold")
+FONT_TITLE = ("SF Pro Display", 26, "bold")
+FONT_SUB = ("SF Pro Text", 14)
+FONT_STATUS = ("SF Pro Text", 14, "bold")
+FONT_MONO = ("SF Mono", 13)
+FONT_MONO_SM = ("SF Mono", 12)
 
 
 class QueueLogWriter:
@@ -51,127 +74,289 @@ class PseudoJarvisGui:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("pseudo-jarvis")
-        self.root.minsize(560, 560)
+        self.root.configure(bg=BG)
+        self.root.minsize(680, 760)
 
         self._log_queue: queue.Queue[str] = queue.Queue()
         self._converter: Optional[VoiceToText] = None
         self._session_thread: Optional[threading.Thread] = None
         self._devices = VoiceToText.list_input_devices()
         self._projects_expanded = False
+        self._listening = False
 
+        self._setup_theme()
         self._build_ui()
         self._poll_log_queue()
-        self._show_startup_hint()
+
+    def _setup_theme(self) -> None:
+        style = ttk.Style(self.root)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+
+        style.configure(".", background=BG, foreground=TEXT, font=FONT_UI)
+        style.configure("TFrame", background=BG)
+        style.configure("Card.TFrame", background=SURFACE)
+        style.configure(
+            "Card.TLabelframe",
+            background=SURFACE,
+            foreground=SECTION,
+            bordercolor=BORDER,
+            relief="flat",
+            borderwidth=1,
+        )
+        style.configure(
+            "Card.TLabelframe.Label",
+            background=SURFACE,
+            foreground=SECTION,
+            font=("SF Pro Text", 13, "bold"),
+        )
+        style.configure("TLabel", background=BG, foreground=TEXT, font=FONT_UI)
+        style.configure("Card.TLabel", background=SURFACE, foreground=TEXT, font=FONT_UI)
+        style.configure("Muted.TLabel", background=BG, foreground=MUTED, font=FONT_UI_BOLD)
+        style.configure("CardMuted.TLabel", background=SURFACE, foreground=MUTED, font=FONT_UI_SM)
+        style.configure("Title.TLabel", background=BG, foreground=TEXT, font=FONT_TITLE)
+        style.configure("Sub.TLabel", background=BG, foreground=MUTED, font=FONT_SUB)
+        style.configure("Status.TLabel", background=BG, foreground=MUTED, font=FONT_STATUS)
+
+        style.configure(
+            "TEntry",
+            fieldbackground=SURFACE,
+            foreground=TEXT,
+            insertcolor=ACCENT,
+            bordercolor=BORDER,
+            lightcolor=BORDER,
+            darkcolor=BORDER,
+            font=FONT_UI,
+        )
+        style.configure(
+            "TCombobox",
+            fieldbackground=SURFACE,
+            foreground=TEXT,
+            background=SURFACE,
+            arrowcolor=ACCENT,
+            bordercolor=BORDER,
+            font=FONT_UI,
+        )
+        style.map("TCombobox", fieldbackground=[("readonly", SURFACE)])
+
+        style.configure(
+            "TButton",
+            background=SURFACE_2,
+            foreground=TEXT,
+            bordercolor=BORDER,
+            focusthickness=0,
+            padding=(16, 10),
+            font=FONT_UI_BOLD,
+        )
+        style.map(
+            "TButton",
+            background=[("active", BORDER), ("disabled", SURFACE_2)],
+            foreground=[("disabled", MUTED)],
+        )
+        style.configure(
+            "Accent.TButton",
+            background=ACCENT,
+            foreground=ACCENT_FG,
+            font=("SF Pro Text", 15, "bold"),
+            padding=(22, 12),
+        )
+        style.map(
+            "Accent.TButton",
+            background=[("active", ACCENT_HOVER), ("disabled", SURFACE_2)],
+            foreground=[("disabled", MUTED)],
+        )
+        style.configure(
+            "Danger.TButton",
+            background=RED_BG,
+            foreground=RED,
+            font=("SF Pro Text", 15, "bold"),
+            padding=(22, 12),
+        )
+        style.map(
+            "Danger.TButton",
+            background=[("active", "#f9d6d2"), ("disabled", SURFACE_2)],
+            foreground=[("disabled", MUTED)],
+        )
+        style.configure(
+            "Ghost.TButton",
+            background=SURFACE,
+            foreground=ACCENT,
+            font=FONT_UI_BOLD,
+            padding=(12, 8),
+        )
+        style.map("Ghost.TButton", background=[("active", SURFACE_2)])
+
+        style.configure("TSeparator", background=BORDER)
 
     def _build_ui(self) -> None:
-        pad = {"padx": 12, "pady": 6}
+        outer = ttk.Frame(self.root, padding=(20, 16, 20, 16))
+        outer.pack(fill="both", expand=True)
+
+        # Header
+        header = ttk.Frame(outer)
+        header.pack(fill="x", pady=(0, 16))
+
+        title_block = ttk.Frame(header)
+        title_block.pack(side="left", fill="x", expand=True)
+        ttk.Label(title_block, text="pseudo-jarvis", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(
+            title_block,
+            text="Voice → Cursor Agent · macOS",
+            style="Sub.TLabel",
+        ).pack(anchor="w", pady=(2, 0))
+
+        status_frame = ttk.Frame(header)
+        status_frame.pack(side="right", anchor="ne")
+        self._status_dot = tk.Label(
+            status_frame,
+            text="●",
+            fg=MUTED,
+            bg=BG,
+            font=("SF Pro Text", 18, "bold"),
+        )
+        self._status_dot.pack(side="left")
+        self._status_label = ttk.Label(status_frame, text="Idle", style="Status.TLabel")
+        self._status_label.pack(side="left", padx=(4, 0))
+
+        ttk.Label(outer, text=STARTUP_HINT, style="Muted.TLabel", wraplength=580).pack(
+            anchor="w", pady=(0, 12)
+        )
+
+        # Projects
+        projects_card = ttk.LabelFrame(outer, text="  Projects  ", style="Card.TLabelframe", padding=16)
+        projects_card.pack(fill="x", pady=(0, 10))
 
         self._projects_toggle_btn = ttk.Button(
-            self.root,
-            text="▶ Subscribed projects",
+            projects_card,
+            text="▸  Subscribed projects",
+            style="Ghost.TButton",
             command=self._toggle_projects_list,
         )
-        self._projects_toggle_btn.pack(anchor="w", **pad)
+        self._projects_toggle_btn.pack(anchor="w")
 
-        self._projects_frame = ttk.Frame(self.root)
+        self._projects_frame = ttk.Frame(projects_card, style="Card.TFrame")
         self._projects_list = tk.Listbox(
             self._projects_frame,
             height=4,
-            font=("Menlo", 10),
+            font=FONT_MONO,
+            bg=SURFACE,
+            fg=TEXT,
+            selectbackground=ACCENT,
+            selectforeground=ACCENT_FG,
+            highlightthickness=1,
+            highlightbackground=BORDER,
+            highlightcolor=ACCENT,
+            borderwidth=0,
             activestyle="none",
         )
-        self._projects_list.pack(fill="x", expand=True)
+        self._projects_list.pack(fill="x", expand=True, pady=(8, 0))
         self._refresh_projects_list()
 
-        hint = ttk.Label(
-            self.root,
-            text=STARTUP_HINT,
-            wraplength=520,
-            foreground="#555555",
-        )
-        hint.pack(anchor="w", **pad)
+        folder_row = ttk.Frame(projects_card, style="Card.TFrame")
+        folder_row.pack(fill="x", pady=(12, 0))
 
-        add_frame = ttk.LabelFrame(self.root, text="Add project to pseudo-jarvis", padding=10)
-        add_frame.pack(fill="x", padx=12, pady=(0, 6))
+        ttk.Label(folder_row, text="Project root", style="CardMuted.TLabel").pack(anchor="w")
+        entry_row = ttk.Frame(folder_row, style="Card.TFrame")
+        entry_row.pack(fill="x", pady=(4, 0))
 
-        folder_row = ttk.Frame(add_frame)
-        folder_row.pack(fill="x")
-
-        ttk.Label(folder_row, text="Project root:").pack(side="left")
         self._folder_var = tk.StringVar()
-        ttk.Entry(folder_row, textvariable=self._folder_var).pack(
-            side="left", fill="x", expand=True, padx=(8, 8)
+        ttk.Entry(entry_row, textvariable=self._folder_var).pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
         )
-        ttk.Button(folder_row, text="Browse…", command=self._browse_folder).pack(side="left")
-        ttk.Button(add_frame, text="ADD", command=self._on_add_project).pack(anchor="e", pady=(8, 0))
+        ttk.Button(entry_row, text="Browse", command=self._browse_folder).pack(side="left", padx=(0, 6))
+        ttk.Button(entry_row, text="Add project", command=self._on_add_project).pack(side="left")
 
-        ttk.Separator(self.root, orient="horizontal").pack(fill="x", padx=12, pady=8)
+        ttk.Separator(outer, orient="horizontal").pack(fill="x", pady=14)
 
-        header = ttk.Label(
-            self.root,
-            text="Voice session · Cursor Agent",
-            font=("Segoe UI", 13, "bold"),
-        )
-        header.pack(anchor="w", **pad)
+        # Voice session
+        session_card = ttk.LabelFrame(outer, text="  Voice session  ", style="Card.TLabelframe", padding=16)
+        session_card.pack(fill="x", pady=(0, 10))
 
-        mic_row = ttk.Frame(self.root)
-        mic_row.pack(fill="x", **pad)
+        mic_row = ttk.Frame(session_card, style="Card.TFrame")
+        mic_row.pack(fill="x")
 
-        ttk.Label(mic_row, text="Microphone:").pack(side="left")
+        ttk.Label(mic_row, text="Microphone", style="CardMuted.TLabel").pack(anchor="w")
         self._mic_var = tk.StringVar()
         self._mic_combo = ttk.Combobox(
             mic_row,
             textvariable=self._mic_var,
             state="readonly" if self._devices else "disabled",
-            width=48,
         )
-        self._mic_combo.pack(side="left", padx=(8, 0), fill="x", expand=True)
+        self._mic_combo.pack(fill="x", pady=(4, 12))
 
-        labels = [f"{name} (device {idx})" for idx, name, _ in self._devices]
+        labels = [f"{name}  ·  device {idx}" for idx, name, _ in self._devices]
         self._mic_combo["values"] = labels
         if labels:
             self._mic_combo.current(0)
 
-        btn_row = ttk.Frame(self.root)
-        btn_row.pack(fill="x", **pad)
+        btn_row = ttk.Frame(session_card, style="Card.TFrame")
+        btn_row.pack(fill="x")
 
-        self._start_btn = ttk.Button(btn_row, text="Start", command=self._on_start)
+        self._start_btn = ttk.Button(
+            btn_row,
+            text="Start listening",
+            style="Accent.TButton",
+            command=self._on_start,
+        )
         self._start_btn.pack(side="left")
 
         self._stop_btn = ttk.Button(
             btn_row,
             text="Stop",
+            style="Danger.TButton",
             command=self._on_stop,
             state="disabled",
         )
-        self._stop_btn.pack(side="left", padx=(8, 0))
+        self._stop_btn.pack(side="left", padx=(10, 0))
 
-        ttk.Label(self.root, text="Session log:").pack(anchor="w", padx=12)
+        # Log
+        log_header = ttk.Frame(outer)
+        log_header.pack(fill="x", pady=(4, 6))
+        ttk.Label(log_header, text="Session log", style="Muted.TLabel").pack(side="left")
+
+        log_frame = tk.Frame(outer, bg=BORDER, padx=1, pady=1)
+        log_frame.pack(fill="both", expand=True)
 
         self._log = scrolledtext.ScrolledText(
-            self.root,
+            log_frame,
             wrap="word",
-            font=("Menlo", 11),
+            font=FONT_MONO,
             state="disabled",
-            height=14,
+            bg=SURFACE,
+            fg=TEXT,
+            insertbackground=ACCENT,
+            selectbackground=ACCENT,
+            selectforeground=ACCENT_FG,
+            relief="flat",
+            borderwidth=0,
+            padx=12,
+            pady=10,
         )
-        self._log.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+        self._log.pack(fill="both", expand=True)
 
         if not self._devices:
             self._append_log("[error] No microphone input devices found.\n")
             self._start_btn.config(state="disabled")
 
-    def _show_startup_hint(self) -> None:
-        messagebox.showinfo("pseudo-jarvis", STARTUP_HINT)
+    def _set_status(self, listening: bool) -> None:
+        self._listening = listening
+        if listening:
+            self._status_dot.config(fg=GREEN)
+            self._status_label.config(text="Listening")
+        else:
+            self._status_dot.config(fg=MUTED)
+            self._status_label.config(text="Idle")
 
     def _toggle_projects_list(self) -> None:
         self._projects_expanded = not self._projects_expanded
         if self._projects_expanded:
-            self._projects_toggle_btn.config(text="▼ Subscribed projects")
+            self._projects_toggle_btn.config(text="▾  Subscribed projects")
             self._refresh_projects_list()
-            self._projects_frame.pack(fill="x", padx=12, pady=(0, 6), after=self._projects_toggle_btn)
+            self._projects_frame.pack(fill="x", pady=(8, 0))
         else:
-            self._projects_toggle_btn.config(text="▶ Subscribed projects")
+            self._projects_toggle_btn.config(text="▸  Subscribed projects")
             self._projects_frame.pack_forget()
 
     def _refresh_projects_list(self) -> None:
@@ -182,7 +367,7 @@ class PseudoJarvisGui:
             self._projects_list.insert(tk.END, f"(setup required: {exc})")
             return
         if not projects:
-            self._projects_list.insert(tk.END, "(no projects yet — use ADD below)")
+            self._projects_list.insert(tk.END, "(no projects yet — add one above)")
             return
         for path in projects:
             self._projects_list.insert(tk.END, path)
@@ -248,6 +433,7 @@ class PseudoJarvisGui:
         if self._session_thread and self._session_thread.is_alive():
             return
 
+        self._set_status(True)
         self._start_btn.config(state="disabled")
         self._stop_btn.config(state="normal")
         self._mic_combo.config(state="disabled")
@@ -286,6 +472,7 @@ class PseudoJarvisGui:
 
     def _on_session_ended(self) -> None:
         self._converter = None
+        self._set_status(False)
         self._start_btn.config(state="normal")
         self._stop_btn.config(state="disabled")
         self._mic_combo.config(state="readonly" if self._devices else "disabled")
@@ -300,6 +487,8 @@ def main() -> None:
         sys.exit(1)
 
     root = tk.Tk()
+    # Retina-friendly default size
+    root.geometry("700x780")
     PseudoJarvisGui(root)
     root.mainloop()
 

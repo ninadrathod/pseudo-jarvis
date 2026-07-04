@@ -58,6 +58,11 @@
         <span class="pill active">Cursor Agent</span>
         <span class="pill planned">Linux / Windows — planned</span>
       </div>
+      <aside class="site-disclaimer" role="note">
+        <strong>Work in progress.</strong> We are still working to improve voice command signals
+        (<code>send</code>, <code>freeze</code>, <code>resume</code>) — capture timing, latency after
+        you stop speaking, and background-noise handling may vary between sessions.
+      </aside>
     </section>
 
     <!-- 2) Why not Cursor's built-in mic -->
@@ -341,6 +346,7 @@ flowchart TD
       <h2>Command &amp; feature workflows</h2>
       <p class="section-intro">
         Voice commands are matched as whole phrases after a pause. Click the tabs below to see each flow.
+        <em class="disclaimer-inline">Voice signal reliability is still being tuned — see disclaimer above.</em>
       </p>
 
       <div class="workflow-nav" role="tablist" aria-label="Workflow diagrams">
