@@ -26,7 +26,7 @@ Review the diff or list of touched files and determine:
 This project uses a **local venv** (`.venv/` at the repo root) for all Python work. Apply this everywhere:
 
 - **Documentation** — README.md setup steps must create `.venv`, activate it, then run `pip` / `python` inside it. Never instruct global `pip install` or system Python unless the user explicitly asks.
-- **Commands you run** — prefer `.venv/bin/python`, `.venv/bin/pip`, or `source .venv/bin/activate` before installs, tests, and `python main.py`.
+- **Commands you run** — prefer `.venv/bin/python`, `.venv/bin/pip`, or `source .venv/bin/activate` before installs, tests, and `python gui_app.py`.
 - **New dependencies** — add to `requirements.txt`; install with `pip install -r requirements.txt` from an activated venv.
 - **`.gitignore`** — keep `.venv/` ignored (already listed); do not commit the venv.
 
@@ -53,8 +53,10 @@ Published project site at repo root (GitHub Pages). Keep in sync when UX or comm
 **`index.html` sections (required):**
 
 1. **About** — project title, link to `https://github.com/ninadrathod/pseudo-jarvis`, brief explanation, Iron Man JARVIS vision, macOS + Cursor AI only (for now).
-2. **Architecture & tech stack** — high-level flow + component/tech cards.
-3. **Workflows** — diagram per feature/command: startup, dictation, pause punctuation, `send`, `freeze`, `resume`, stop (`q`).
+2. **Why pseudo-jarvis vs Cursor mic** — comparison section (`#comparison`): built-in mic vs continuous dictation, voice commands, confirmation rule.
+3. **Architecture & tech stack** — high-level flow + component/tech cards (`gui_app.py`, `app/session.py`, `project_registry.py`).
+4. **App UI** — tkinter window layout (`#ui`): subscribed projects, ADD project, mic + Start/Stop, session log.
+5. **Workflows** — diagram per feature/command: startup, dictation, pause punctuation, `send`, `freeze`, `resume`, stop (GUI **Stop** button).
 
 **Implementation notes:**
 
@@ -71,12 +73,12 @@ Gitignored local config at the repo root, populated by `setup.sh`. Keep docs in 
 
 | Path | Role |
 |------|------|
-| `setup-variables/mds-path.txt` | Absolute path to `voice-input-confirmation.mds` (not committed) |
-| `setup-variables/subscribed-projects.txt` | Project root directory path (not committed) |
+| `setup-variables/mds-path.txt` | Absolute path to `voice-input-confirmation.mds` (one line; used by `app/project_registry.py`) |
+| `setup-variables/subscribed-projects.txt` | One project root per line, trailing `/` (pseudo-jarvis repo + any ADDed Cursor projects) |
 
 | Script | Role |
 |--------|------|
-| `setup.sh` | Creates `setup-variables/`, writes path files, creates `.venv`, `pip install -r requirements.txt`, prints **Setup complete.** |
+| `setup.sh` | Creates `setup-variables/`, writes both path files, creates `.venv` if missing, `pip install -r requirements.txt`, prints next steps |
 
 - **`.gitignore`** — include `setup-variables/` (entire directory).
 - **README.md** — **Project files** table: rows for `setup.sh` and `setup-variables/`; setup section documents `./setup.sh`.
@@ -84,6 +86,8 @@ Gitignored local config at the repo root, populated by `setup.sh`. Keep docs in 
 - **This rule** — update tables above if files are added or renamed.
 
 Do **not** commit contents of `setup-variables/`; document structure only.
+
+**Bundled `.app`:** when `setup-variables/` is absent at the install root, `app/project_registry.py` creates `~/Library/Application Support/pseudo-jarvis/setup-variables/` with default path files pointing at bundled rules.
 
 ## PortAudio verification
 
@@ -94,49 +98,51 @@ PyAudio depends on the system **PortAudio** library (via Homebrew on macOS). Kee
 
 When audio/mic dependencies change, update the PortAudio install and verify steps in README.md and mention verification in this rule’s checklist.
 
-## CLI and microphone input
+## GUI and microphone input
 
-The app starts via `main.py` and binds one input device for the whole session. Keep root docs aligned when this flow changes:
+The app runs via **`gui_app.py`** (or `pseudo-jarvis.app`). One mic is selected in the GUI for the whole session. Keep root docs aligned when this flow changes:
 
 | Step | Code | Document in… |
 |------|------|----------------|
-| List + pick input device | `VoiceToText.select_input_device()` in `app/voice_to_text.py` | README.md run section; index.html architecture |
-| Session capture | `VoiceToText(device_index=…)` | README.md **Project files** table; index.html |
-| Start / stop listening | Click in Cursor Agent typing box → auto-start; `q` in Terminal to stop | README.md run section; `main.py` prompts |
-| Send → Enter | Say `send` after a pause → Enter + rule mention | README run section; `main.py`; index.html workflows |
-| Freeze / resume | Say `freeze` after pause → freeze dictation; `resume` (after freeze only) → click → rule mention → then dictate | README; index.html; this rule |
+| List input devices | `VoiceToText.list_input_devices()` in `app/voice_to_text.py` | README.md; index.html App UI |
+| Pick mic + Start | `PseudoJarvisGui` mic dropdown → `run_session(device_index)` | README **Using the app**; index.html App UI |
+| Session capture | `VoiceToText(device_index=…)` via `app/session.py` | README **Project files**; index.html architecture |
+| Start / stop listening | Click in Cursor Agent typing box → auto-listen; **Stop** button in GUI | README; index.html workflows |
+| Subscribe projects | `add_subscribed_project()` in `app/project_registry.py` | README **Using the app**; index.html ADD flow |
+| Send → Enter | Say `send` after a pause → Enter + rule mention | README; index.html workflows |
+| Freeze / resume | Say `freeze` after pause; `resume` (after freeze only) → click → rule mention → dictate | README; index.html; this rule |
 
-When adding or changing audio UX (device listing, default device, external mic notes, start/stop keys):
+When adding or changing audio UX (device listing, GUI controls, bundled `.app` config):
 
-- **README.md** — describe the startup sequence: device menu → Cursor Agent click → auto-listen → speak → Terminal + `q`.
-- **index.html** — update the high-level flow diagram and component cards if device selection or capture path changes.
-- **This rule** — extend the examples below if new patterns appear (e.g. saved device preference).
+- **README.md** — startup: ADD project (if needed) → pick mic → Start → Cursor Agent click → speak → **Stop**.
+- **index.html** — update architecture diagram, App UI wireframe, and workflow tabs.
+- **This rule** — extend examples below if new patterns appear (e.g. saved device preference).
 
 Do **not** document `pkg-config`; PortAudio verification is `brew list portaudio` only.
 
-Do **not** describe recognized speech as printing to Terminal; it is typed at the cursor (see next section).
+Do **not** describe recognized speech as printing to Terminal; it is typed at the cursor (see next section). Session status still appears in the GUI log via redirected `print()`.
 
 ## Text output at cursor
 
-Recognized speech is **typed where the cursor is focused** (any app), not printed to Terminal. Status and errors still use `print()` in Terminal.
+Recognized speech is **typed where the cursor is focused** (Cursor Agent), not printed as the transcript. Status and errors go to the GUI session log (stdout redirected from the session thread).
 
 | Concern | Code / dep | Document in… |
 |---------|------------|--------------|
 | Simulated keystrokes | `VoiceToText._type_recognized_text()` | README **Project files**; index.html tech stack |
-| Keyboard simulation lib | `pyautogui` in `requirements.txt` | README setup step 4; index.html architecture diagram |
-| macOS permission | Accessibility for Terminal | README **Prerequisites** (alongside Microphone) |
-| User workflow | Pick mic → Cursor Agent click → auto-listen → speak → Terminal + `q` | README run section; `main.py` prompts |
-| Thread safety | `_typing_lock` around `pyautogui.write()` | index.html only if implementation changes |
+| Keyboard simulation lib | `pyautogui` in `requirements.txt` | README setup; index.html architecture diagram |
+| macOS permission | Accessibility for **pseudo-jarvis** (`.app`) or **Terminal** (source) | README **Prerequisites** (alongside Microphone) |
+| User workflow | ADD project → pick mic → Start → Cursor Agent click → speak → GUI **Stop** | README **Using the app**; index.html App UI |
+| Thread safety | `_typing_lock` around pyautogui / paste | index.html only if implementation changes |
 | Phrase spacing | leading space between phrases when pause ≤ threshold | no user doc unless behavior changes |
-| Pause punctuation | `_try_emit_period_for_pause()`, `_pause_monitor_loop()` | README run section; index.html; this rule (below) |
-| Voice command | `SEND_COMMAND`, `_is_send_command()`, `_handle_send_command()` | README run section; `main.py` prompts; index.html workflows |
-| Errors only in Terminal | `print("[error] …")` in `_process_audio` | unchanged unless output path changes |
+| Pause punctuation | `_try_emit_period_for_pause()`, `_pause_monitor_loop()` | README; index.html; this rule (below) |
+| Voice command | `SEND_COMMAND`, `_is_send_command()`, `_handle_send_command()` | README; index.html workflows |
+| Errors in session log | `print("[error] …")` in `_process_audio` | unchanged unless output path changes |
 
 When output delivery changes (terminal vs cursor vs clipboard):
 
 - Add or remove deps in `requirements.txt`; mirror in README **Project files** table.
 - Update index.html flow: mic → Google Speech → `_type_recognized_text()` → **focused app (cursor)** — not Terminal stdout.
-- README **Prerequisites**: **Microphone** + **Accessibility** for Terminal when using `pyautogui`.
+- README **Prerequisites**: **Microphone** + **Accessibility** for pseudo-jarvis (or Terminal when running `python gui_app.py` from source).
 - Remove stale wording such as “prints to terminal” or “terminal output” for transcripts anywhere in root docs.
 
 ## Pause punctuation
@@ -156,9 +162,9 @@ Constant: `VoiceToText.PAUSE_PERIOD_AFTER` (2.0). No comma logic.
 
 When pause logic changes:
 
-- **README.md** — run section: document `. ` + Shift+Enter on long pause; send → Enter + rule mention.
+- **README.md** — **Using the app**: document `. ` + Shift+Enter on long pause; send → Enter + rule mention.
 - **index.html** — pause → `. ` → Shift+Enter; send → Enter → `@voice-input-confirmation.mds `.
-- **main.py** prompts — keep in sync if user-facing wording changes.
+- **`print_session_header()`** in `app/session.py` and `listen_and_transcribe()` banner — keep user-facing wording in sync.
 
 ## Voice command: send → Enter
 
@@ -182,18 +188,18 @@ After a pause, if Google Speech transcribes the next phrase as exactly **`send`*
 | `_recognition_queue` / `_recognition_priority()` | Short audio (&lt; 2 s) processed before long phrases |
 | `_try_emit_period_for_pause()` | Skip when `_suppress_period_after_send` is True |
 
-Code: `FREEZE_COMMAND`, `RESUME_COMMAND`, `_handle_freeze_command()`, `_handle_resume_command()`, `_complete_resume_setup()`. Mic stays on during freeze so **resume** can be heard. After **resume**: wait for click → type rule mention → then start dictation (`_dictation_halted = False`). **`q`**: `stop()` stops mic, drains queue, joins worker — no further typing (`_session_active()`, `_with_typing_if_active()`).
+Code: `FREEZE_COMMAND`, `RESUME_COMMAND`, `_handle_freeze_command()`, `_handle_resume_command()`, `_complete_resume_setup()`. Mic stays on during freeze so **resume** can be heard. After **resume**: wait for click → type rule mention → then start dictation (`_dictation_halted = False`). **Stop** button: `stop()` stops mic, drains queue, joins worker — no further typing (`_session_active()`, `_with_typing_if_active()`).
 
 When the send command changes:
 
-- **README.md** — run section bullet for send → Enter.
-- **main.py** and `listen_and_transcribe()` banner — user-facing wording.
-- **index.html** — VoiceToText card or design principle.
+- **README.md** — **Using the app** bullet for send → Enter.
+- **`app/session.py`** and `listen_and_transcribe()` banner — user-facing wording.
+- **index.html** — VoiceToText card or workflow tab.
 - **This rule** — update table and example below.
 
 ## Session start prefix
 
-After **microphone selection**, wait for the user to **click** a typing window, then type:
+After **mic selection in the GUI** and **Start**, wait for the user to **click** a typing window, then type:
 
 ```text
 @voice-input-confirmation.mds 
@@ -223,12 +229,12 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 - [ ] Does README.md document `./setup.sh` when setup automation changes?
 - [ ] Do setup and run commands use `.venv` (not global Python/pip)?
 - [ ] Does README.md state **macOS only** and include PortAudio install + verification steps?
-- [ ] Does README.md describe the **startup flow** (mic → Cursor Agent click → auto-listen → Terminal + `q`) if CLI/audio code changed?
-- [ ] Does `index.html` reflect `VoiceToText.select_input_device()` and session-bound `device_index` when mic code changed?
-- [ ] Does cursor output doc mention **Accessibility**, `pyautogui`, and `_type_recognized_text()` (not Terminal print) for transcripts?
+- [ ] Does README.md describe the **startup flow** (ADD → mic → Start → Cursor Agent click → speak → GUI Stop) if GUI/audio code changed?
+- [ ] Does `index.html` reflect `VoiceToText.list_input_devices()` and GUI mic dropdown when mic code changed?
+- [ ] Does cursor output doc mention **Accessibility**, `pyautogui`, and `_type_recognized_text()` (not session log as transcript) for recognized speech?
 - [ ] If pause punctuation changed, do README and index.html document `. ` + Shift+Enter after pause > 2 s?
-- [ ] Does startup flow document mic selection → **click** typing window → rule mention (not immediate on launch)?
-- [ ] If send → Enter changed, do README, `main.py`, and index.html document post-pause **send** pressing Enter (not typing the word), priority queue, and no `. ` after send?
+- [ ] Does startup flow document mic selection → **Start** → **click** typing window → rule mention?
+- [ ] If send → Enter changed, do README, `app/session.py`, and index.html document post-pause **send** pressing Enter (not typing the word), priority queue, and no `. ` after send?
 
 ## Style
 
@@ -238,33 +244,33 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 
 ## Examples
 
-### Device selection (`VoiceToText.select_input_device()`)
+### Device selection (GUI mic dropdown)
 
-1. README.md — run section: user picks from listed input devices before pressing Enter; mention external USB mics if relevant.
-2. README.md **Project files** — `main.py` (device selection + prompts); `app/voice_to_text.py` (`VoiceToText`, including `select_input_device()`).
-3. `index.html` — flow: `main.py` → `VoiceToText.select_input_device()` → `VoiceToText(device_index)` → transcript path.
+1. README.md — **Using the app**: user picks mic from dropdown, then Start.
+2. README.md **Project files** — `gui_app.py` (GUI); `app/voice_to_text.py` (`VoiceToText.list_input_devices()`).
+3. `index.html` — flow: `gui_app.py` → mic dropdown → `run_session(device_index)` → `VoiceToText(device_index)`.
 4. PortAudio steps unchanged unless new audio deps were added.
 
 ### Cursor typing (`_type_recognized_text()` + `pyautogui`)
 
-1. `requirements.txt` — add `pyautogui`; README **Project files** lists it with SpeechRecognition and PyAudio.
-2. README **Prerequisites** — Accessibility for Terminal (in addition to Microphone).
-3. README run section — numbered steps: pick mic → Cursor Agent click → auto-listen → speak → Terminal + `q` to stop.
-4. `index.html` — diagram: transcript → `_type_recognized_text()` / pyautogui → focused app; VoiceToText card mentions typing methods.
-5. Do not say transcripts print to Terminal.
+1. `requirements.txt` — `pyautogui`; README **Project files** lists it with SpeechRecognition and PyAudio.
+2. README **Prerequisites** — Accessibility for pseudo-jarvis or Terminal (in addition to Microphone).
+3. README **Using the app** — ADD → mic → Start → Cursor Agent click → speak → Stop.
+4. `index.html` — diagram: transcript → `_type_recognized_text()` / pyautogui → Cursor Agent; App UI section.
+5. Do not say transcripts print to the session log as the primary output — they type at the cursor.
 
 ### Pause punctuation (`. `)
 
-1. README run section — pause **> 2 s** → `. ` + Shift+Enter; send → Enter + rule mention (not on pause alone).
+1. README **Using the app** — pause **> 2 s** → `. ` + Shift+Enter; send → Enter + rule mention (not on pause alone).
 2. `index.html` — `_try_emit_period_for_pause()` uses `pyautogui.hotkey("shift", "enter")`.
 3. Constant `PAUSE_PERIOD_AFTER` — document threshold if it changes.
 
 ### Send command (say `send` → Enter)
 
 1. `app/voice_to_text.py` — send: Enter, `SEND_RULE_DELAY`, then rule mention; suppress `. ` after send.
-2. README — send after pause; main.py types rule mention at startup.
-3. `main.py` + listening banner — mention send command using `VoiceToText.SEND_COMMAND`.
-4. `index.html` — VoiceToText card: send after pause → Enter.
+2. README — send after pause; session types rule mention at startup after click.
+3. `app/session.py` + listening banner — mention send command using `VoiceToText.SEND_COMMAND`.
+4. `index.html` — workflow tab: send after pause → Enter.
 
 ### New agent module
 

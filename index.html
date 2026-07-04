@@ -18,7 +18,9 @@
       <nav aria-label="Page sections">
         <ul>
           <li><a href="#about">About</a></li>
+          <li><a href="#comparison">vs Cursor mic</a></li>
           <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#ui">App UI</a></li>
           <li><a href="#workflows">Workflows</a></li>
           <li><a href="https://github.com/ninadrathod/pseudo-jarvis" target="_blank" rel="noopener">GitHub</a></li>
         </ul>
@@ -52,28 +54,111 @@
       </div>
       <div class="platform-pills">
         <span class="pill active">macOS only</span>
+        <span class="pill active">tkinter GUI + .app</span>
         <span class="pill active">Cursor Agent</span>
         <span class="pill planned">Linux / Windows — planned</span>
-        <span class="pill planned">Other IDEs — planned</span>
       </div>
     </section>
 
-    <!-- 2) Architecture & tech stack -->
-    <section class="container" id="architecture">
-      <p class="section-label">02 — System design</p>
-      <h2>Architecture &amp; tech stack</h2>
+    <!-- 2) Why not Cursor's built-in mic -->
+    <section class="container" id="comparison">
+      <p class="section-label">02 — Why pseudo-jarvis?</p>
+      <h2>Not the same as Cursor&apos;s microphone</h2>
       <p class="section-intro">
-        A Python CLI captures speech, transcribes via Google Speech Recognition, and simulates
-        keystrokes into whichever app has focus — designed for Cursor Agent on macOS.
+        Cursor has a built-in voice button in Agent chat (hold <code>Ctrl+M</code> / <code>Cmd+M</code>, or click the mic).
+        It records a clip, runs batch speech-to-text, and drops the transcript into the input field when you confirm.
+        <strong>pseudo-jarvis is a different pipeline</strong> — built for hands-free, continuous dictation into Cursor
+        with voice commands and an agent rule that confirms intent before acting.
       </p>
 
       <div class="card-grid">
         <div class="card">
-          <h3>Runtime <span class="status status-active">active</span></h3>
+          <h3>Cursor mic <span class="status status-planned">built-in</span></h3>
           <ul>
-            <li>Python 3 + <code>.venv</code></li>
-            <li><code>main.py</code> entry point</li>
+            <li>Push-to-talk or hold shortcut — one recording, then transcribe</li>
+            <li>Transcript appears only inside Cursor&apos;s chat input</li>
+            <li>You still click Send (or type) to submit the message</li>
+            <li>No custom voice commands or pause punctuation</li>
+            <li>Uses Cursor&apos;s own STT stack (quality varies by release / window)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>pseudo-jarvis <span class="status status-active">this project</span></h3>
+          <ul>
+            <li><strong>Continuous</strong> dictation — text types at the cursor as you speak</li>
+            <li>Simulates keystrokes (needs macOS Accessibility)</li>
+            <li>Say <code>send</code> after a pause → Enter + <code>@voice-input-confirmation.mds</code></li>
+            <li><code>freeze</code> / <code>resume</code> and pause &gt; 2 s → <code>. </code> + Shift+Enter</li>
+            <li>Agent rule asks for <strong>confirm.</strong> before implementing</li>
+          </ul>
+        </div>
+      </div>
+
+      <table class="command-table compare-table">
+        <thead>
+          <tr><th></th><th>Cursor microphone</th><th>pseudo-jarvis</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>When to use</strong></td>
+            <td>Quick one-shot prompts; you review text before sending</td>
+            <td>Long dictation sessions; JARVIS-style talk → confirm → act</td>
+          </tr>
+          <tr>
+            <td><strong>Recording model</strong></td>
+            <td>Record clip → batch STT → paste into input</td>
+            <td>Always listening; chunks transcribed in a priority queue</td>
+          </tr>
+          <tr>
+            <td><strong>Submit message</strong></td>
+            <td>Manual Send button or Enter</td>
+            <td>Voice command <code>send</code> (Enter + rule mention)</td>
+          </tr>
+          <tr>
+            <td><strong>Agent safety</strong></td>
+            <td>Whatever you typed is sent as-is</td>
+            <td><code>@voice-input-confirmation.mds</code> restates intent; waits for <code>Confirm.</code></td>
+          </tr>
+          <tr>
+            <td><strong>Setup</strong></td>
+            <td>Microphone permission for Cursor only</td>
+            <td>Separate app; Microphone + Accessibility; ADD each project once</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <blockquote class="hero-vision compare-note">
+        Use <em>Cursor&apos;s mic</em> when you want a short prompt inside chat with no extra tooling.
+        Use <em>pseudo-jarvis</em> when you want to dictate continuously, break sentences on long pauses,
+        submit with your voice, and have the agent confirm before it edits code or runs commands.
+      </blockquote>
+    </section>
+
+    <!-- 3) Architecture & tech stack -->
+    <section class="container" id="architecture">
+      <p class="section-label">03 — System design</p>
+      <h2>Architecture &amp; tech stack</h2>
+      <p class="section-intro">
+        A macOS tkinter app captures speech, transcribes via Google Speech Recognition, and simulates
+        keystrokes into Cursor Agent. Run from source (<code>python gui_app.py</code>) or install
+        <code>pseudo-jarvis.app</code> built with PyInstaller.
+      </p>
+
+      <div class="card-grid">
+        <div class="card">
+          <h3>App shell <span class="status status-active">active</span></h3>
+          <ul>
+            <li><code>gui_app.py</code> — tkinter GUI</li>
+            <li><code>app/session.py</code> — session runner</li>
+            <li><code>build_app.sh</code> → <code>.app</code> bundle</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Voice engine <span class="status status-active">active</span></h3>
+          <ul>
             <li><code>VoiceToText</code> in <code>app/voice_to_text.py</code></li>
+            <li>Priority queue for send / resume</li>
+            <li>Stop button → <code>stop()</code> (no stray typing)</li>
           </ul>
         </div>
         <div class="card">
@@ -87,9 +172,17 @@
         <div class="card">
           <h3>Cursor integration <span class="status status-active">active</span></h3>
           <ul>
-            <li>pyautogui + pynput</li>
+            <li>pyautogui + pynput (click, paste, type)</li>
             <li>Paste <code>@voice-input-confirmation.mds</code></li>
             <li>Agent rule confirms intent</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Project registry <span class="status status-active">active</span></h3>
+          <ul>
+            <li><code>app/project_registry.py</code></li>
+            <li>ADD copies voice rule into projects</li>
+            <li><code>setup-variables/subscribed-projects.txt</code></li>
           </ul>
         </div>
         <div class="card">
@@ -104,10 +197,11 @@
 flowchart LR
   subgraph Input
     MIC[Microphone]
-    TERM[Terminal q to stop]
+    BTN[GUI Start / Stop]
   end
   subgraph pseudo_jarvis
-    MAIN[main.py]
+    GUI[gui_app.py]
+    SESS[app/session.py]
     VTT[VoiceToText]
     QUEUE[Priority queue]
     SR[Google Speech API]
@@ -116,11 +210,12 @@ flowchart LR
     CUR[Cursor Agent typing box]
   end
   MIC --> VTT
-  MAIN --> VTT
+  BTN --> GUI
+  GUI --> SESS --> VTT
   VTT --> QUEUE --> SR
   SR --> VTT
   VTT -->|pyautogui / paste| CUR
-  TERM -->|stop| VTT
+  BTN -->|Stop| VTT
         </pre>
       </div>
 
@@ -129,29 +224,120 @@ flowchart LR
         <pre class="mermaid">
 flowchart TB
   subgraph Startup
-    A[select_input_device] --> B[wait for click]
-    B --> C[type rule mention]
-    C --> D[listen_and_transcribe]
+    A[Mic dropdown in GUI] --> B[Start button]
+    B --> C[wait for click in Cursor]
+    C --> D[type rule mention]
+    D --> E[listen_and_transcribe]
   end
   subgraph Dictation
-    D --> E[_on_audio callback]
-    E --> F[_recognition_worker]
-    F --> G{command?}
-    G -->|speech| H[_type_recognized_text]
-    G -->|send| I[Enter + rule mention]
-    G -->|freeze| J[halt typing]
-    G -->|resume| K[click + rule mention]
+    E --> F[_on_audio callback]
+    F --> G[_recognition_worker]
+    G --> H{command?}
+    H -->|speech| I[_type_recognized_text]
+    H -->|send| J[Enter + rule mention]
+    H -->|freeze| K[halt typing]
+    H -->|resume| L[click + rule mention]
   end
-  H --> CUR[(Cursor focus)]
-  I --> CUR
-  K --> CUR
+  I --> CUR[(Cursor focus)]
+  J --> CUR
+  L --> CUR
         </pre>
       </div>
     </section>
 
-    <!-- 3) Workflows -->
+    <!-- 4) App UI -->
+    <section class="container" id="ui">
+      <p class="section-label">04 — Application window</p>
+      <h2>App UI (<code>gui_app.py</code>)</h2>
+      <p class="section-intro">
+        The pseudo-jarvis window is a single tkinter app. Everything below runs on macOS only;
+        grant <strong>Microphone</strong> and <strong>Accessibility</strong> to
+        <code>pseudo-jarvis</code> (or Terminal when running from source).
+      </p>
+
+      <div class="ui-mock" aria-label="GUI layout wireframe">
+        <div class="ui-mock-region">
+          <strong>▶ Subscribed projects</strong>
+          Collapsible list of project roots from <code>setup-variables/subscribed-projects.txt</code>.
+          Expand to see which Cursor repos already have the voice rule installed.
+        </div>
+        <div class="ui-mock-region">
+          <strong>Add project to pseudo-jarvis</strong>
+          <code>Project root</code> text field · <code>Browse…</code> folder picker · <code>ADD</code> button.
+          Copies <code>voice-input-confirmation.mds</code> into <code>.cursor/rules/</code>, registers the path,
+          and adds the rule file to that project&apos;s <code>.gitignore</code>.
+        </div>
+        <div class="ui-mock-region">
+          <strong>Voice session · Cursor Agent</strong>
+          <code>Microphone</code> dropdown (from <code>list_input_devices</code>) ·
+          <code>Start</code> begins a session on a background thread ·
+          <code>Stop</code> calls <code>VoiceToText.stop()</code> and re-enables the mic picker.
+        </div>
+        <div class="ui-mock-region ui-mock-log">
+          <strong>Session log</strong>
+          Scrollable pane. All session <code>print()</code> output is redirected here via
+          <code>QueueLogWriter</code> — calibration, listening hints, freeze/resume messages, and errors.
+        </div>
+      </div>
+
+      <div class="card-grid">
+        <div class="card">
+          <h3>First launch</h3>
+          <p>A dialog explains that you must <strong>ADD</strong> each Cursor project root before dictating into it.</p>
+        </div>
+        <div class="card">
+          <h3>Start</h3>
+          <p>Disables Start and mic picker, enables Stop, spawns <code>run_session(device_index)</code> on a worker thread, and binds the live <code>VoiceToText</code> instance for Stop.</p>
+        </div>
+        <div class="card">
+          <h3>Stop</h3>
+          <p>Sets the stop flag, drains the recognition queue, and joins worker threads so no keystrokes fire after the session ends.</p>
+        </div>
+        <div class="card">
+          <h3>Distribution</h3>
+          <p><code>./build_app.sh</code> produces <code>dist/pseudo-jarvis.app</code>. The bundled app stores config under <code>~/Library/Application Support/pseudo-jarvis/</code> when not run from the repo.</p>
+        </div>
+      </div>
+
+      <div class="diagram-panel">
+        <h3>GUI → session → Cursor</h3>
+        <pre class="mermaid">
+sequenceDiagram
+  actor User
+  participant GUI as gui_app.py
+  participant Sess as app/session.py
+  participant VTT as VoiceToText
+  participant Cursor as Cursor Agent
+  User->>GUI: choose mic, click Start
+  GUI->>Sess: run_session on background thread
+  Sess->>User: click typing box
+  User->>Cursor: click
+  Sess->>Cursor: paste @voice-input-confirmation.mds
+  Sess->>VTT: listen_and_transcribe
+  GUI->>GUI: session log shows hints
+  User->>Cursor: speak
+  VTT->>Cursor: type at cursor
+  User->>GUI: click Stop
+  GUI->>VTT: stop
+        </pre>
+      </div>
+
+      <div class="diagram-panel">
+        <h3>ADD project flow</h3>
+        <pre class="mermaid">
+flowchart TD
+  A[Browse or paste project root] --> B[Click ADD]
+  B --> C[Copy voice-input-confirmation.mds]
+  C --> D[Append path to subscribed-projects.txt]
+  D --> E[Add rule path to project .gitignore]
+  E --> F[Show in Subscribed projects list]
+        </pre>
+      </div>
+    </section>
+
+    <!-- 5) Workflows -->
     <section class="container" id="workflows">
-      <p class="section-label">03 — How it works</p>
+      <p class="section-label">05 — How it works</p>
       <h2>Command &amp; feature workflows</h2>
       <p class="section-intro">
         Voice commands are matched as whole phrases after a pause. Click the tabs below to see each flow.
@@ -164,7 +350,7 @@ flowchart TB
         <button class="workflow-tab" data-panel="send" role="tab">send</button>
         <button class="workflow-tab" data-panel="freeze" role="tab">freeze</button>
         <button class="workflow-tab" data-panel="resume" role="tab">resume</button>
-        <button class="workflow-tab" data-panel="stop" role="tab">Stop (q)</button>
+        <button class="workflow-tab" data-panel="stop" role="tab">Stop</button>
       </div>
 
       <div class="workflow-panel active" id="panel-startup" role="tabpanel">
@@ -173,12 +359,12 @@ flowchart TB
           <pre class="mermaid">
 sequenceDiagram
   actor User
-  participant Term as Terminal
+  participant GUI as pseudo-jarvis GUI
   participant App as VoiceToText
   participant Cursor as Cursor Agent
-  User->>Term: python main.py
-  Term->>User: pick microphone
-  User->>Cursor: click typing box
+  User->>GUI: open app, pick mic, Start
+  GUI->>User: click typing box
+  User->>Cursor: click
   App->>Cursor: paste @voice-input-confirmation.mds
   App->>App: start listening
   User->>Cursor: speak — text appears at cursor
@@ -270,27 +456,28 @@ sequenceDiagram
 
       <div class="workflow-panel" id="panel-stop" role="tabpanel">
         <div class="diagram-panel">
-          <h3>Stop session — press q in Terminal</h3>
+          <h3>Stop session — GUI Stop button</h3>
           <pre class="mermaid">
 flowchart TD
-  A[Press q in Terminal] --> B[stop sets flag]
+  A[Click Stop in pseudo-jarvis] --> B[VoiceToText.stop sets flag]
   B --> C[Mic listener stops]
   C --> D[Queue drained]
   D --> E[No further typing or paste]
-  E --> F[Session ended message]
+  E --> F[Session log: stopped message]
+  F --> G[Start re-enabled, mic picker unlocked]
           </pre>
         </div>
       </div>
 
       <table class="command-table">
         <thead>
-          <tr><th>Command / key</th><th>When</th><th>Result</th></tr>
+          <tr><th>Command / control</th><th>When</th><th>Result</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>send</code></td><td>After pause</td><td>Enter → rule mention → agent confirmation</td></tr>
+          <tr><td><code>send</code></td><td>After pause</td><td>Enter → wait 0.5 s → rule mention → agent confirmation</td></tr>
           <tr><td><code>freeze</code></td><td>After pause</td><td>Stop typing; mic listens for resume</td></tr>
           <tr><td><code>resume</code></td><td>After freeze</td><td>Click → rule mention → dictate again</td></tr>
-          <tr><td><code>q</code></td><td>Terminal focused</td><td>End session; zero keystrokes after stop</td></tr>
+          <tr><td><code>Stop</code> button</td><td>Any time during session</td><td>End session; zero keystrokes after stop</td></tr>
         </tbody>
       </table>
     </section>
@@ -355,6 +542,7 @@ flowchart TD
 
     document.addEventListener("DOMContentLoaded", function () {
       renderMermaidIn(document.getElementById("architecture"));
+      renderMermaidIn(document.getElementById("ui"));
       renderMermaidIn(document.getElementById("panel-startup"));
     });
   </script>
