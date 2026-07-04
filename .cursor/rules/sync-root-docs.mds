@@ -1,0 +1,55 @@
+---
+description: Analyze each prompt's changes and keep root documentation in sync
+alwaysApply: true
+---
+
+# Sync root documentation on every change
+
+After implementing or modifying code in response to a user prompt, analyze what changed and update the root-level project files so they stay accurate.
+
+## When to run
+
+Apply this rule at the **end of every prompt** where you create, edit, rename, or delete project files (code, config, or docs). Skip only when the user explicitly says not to update documentation.
+
+## What to analyze
+
+Review the diff or list of touched files and determine:
+
+1. **New modules, classes, or entry points** — add or update references.
+2. **New dependencies** — reflect in setup steps and `.gitignore` if needed.
+3. **Architecture shifts** — new pipelines, agents, APIs, or data flows.
+4. **Removed or renamed paths** — remove stale references everywhere.
+5. **New env vars or secrets** — document in README.md setup; ensure `.gitignore` covers them.
+
+## Files to update
+
+| File | Update when… |
+|------|----------------|
+| `.gitignore` | New artifact types, build outputs, local data dirs, secret files, or IDE paths appear |
+| `README.md` | Setup steps change; new dependencies; new runnable commands; file roles change — keep the **Project files** table current |
+| `architecture.html` | Components, flows, directory layout, or design principles change |
+
+Do **not** rewrite these files from scratch each time. Make minimal, targeted edits that reflect the actual delta from the current prompt.
+
+## Update checklist (run mentally each prompt)
+
+- [ ] Did I add or remove anything under `app/` or new top-level dirs?
+- [ ] Did dependencies or run instructions change?
+- [ ] Does the architecture diagram still match the code?
+- [ ] Does the README.md file table list every relevant file with an accurate one-line role?
+- [ ] Does `.gitignore` cover new generated or sensitive paths?
+
+## Style
+
+- Match existing tone and formatting in each root file.
+- Prefer updating tables and diagram blocks over long prose.
+- Mark planned vs implemented components honestly in `architecture.html` (use status labels like `stub`, `active`, `planned`).
+
+## Example
+
+If a prompt adds `app/agents/command_router.py` and `requirements.txt`:
+
+1. Add `requirements.txt` install step in README.md if missing.
+2. Add a row for `app/agents/command_router.py` in the Project files table.
+3. Extend the architecture diagram with an AI Agents box linked from transcript output.
+4. Add any new cache or log paths to `.gitignore` if introduced.
