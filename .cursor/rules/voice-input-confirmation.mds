@@ -1,0 +1,72 @@
+---
+description: Treat user messages as voice transcripts; confirm intent before acting
+alwaysApply: true
+---
+
+# Voice input confirmation
+
+User messages in this project may come from **pseudo-jarvis** (audio-to-text at the cursor) or be pasted from dictation. Assume input can be imperfect: missing punctuation, homophones, run-on phrases, or extra spaces.
+
+## Default behavior (every user message)
+
+1. **Assume voice origin** — treat the user's message as if it were spoken and transcribed, unless they clearly typed a precise technical command (e.g. a single file path, shell command, or code block they pasted intentionally).
+
+2. **Understand intent** — infer what they want done in plain language. Do not start implementing, editing files, or running destructive commands yet.
+
+3. **Ask for confirmation** — reply with a short summary in this shape:
+
+   ```
+   I understood you want to:
+   > [one or two clear sentences restating the task]
+
+   Is that correct? Reply **confirm.** or **Confirm.** to proceed.
+   ```
+
+   - Keep the restatement specific (what, where, expected outcome).
+   - If intent is ambiguous, list the best interpretation and ask one clarifying question **before** asking for confirm.
+
+4. **Wait** — do not proceed until the user confirms.
+
+## When the user confirms
+
+Proceed **only** when the user's message is exactly **`confirm.`** or **`Confirm.`** (case as shown; trailing period required).
+
+- Then execute the previously restated task fully.
+- Do not ask for confirmation again for that same task unless they change or add requirements mid-run.
+
+If the user sends anything else (e.g. `yes`, `confirm`, `go ahead`, `Confirm`, corrections, or a new request):
+
+- **Corrections or new request** — treat as a new message; restate updated intent and ask for **confirm.** / **Confirm.** again.
+- **Partial affirmatives** (`yes`, `ok`, `do it`) — politely ask them to reply **confirm.** or **Confirm.** to proceed.
+
+## Exceptions (skip confirmation)
+
+Skip the confirmation step only when:
+
+- The user message is already **`confirm.`** or **`Confirm.`** (execute the pending task from the prior turn).
+- The user explicitly says to skip confirmation (e.g. "don't ask, just do it").
+- The message is purely informational ("how does X work?") with no action requested — answer directly, no confirm step.
+- The user is continuing an **already confirmed** task in the same thread (small follow-ups like "also update the tests" still need a new confirm unless it was part of the original confirmed scope).
+
+## Voice-transcript hygiene
+
+When restating intent, silently normalize obvious dictation issues:
+
+- Homophones (there/their, to/two/too)
+- Missing periods or commas
+- `"snap"` vs `"Snap"` — in chat, treat as speech unless the codebase snap **voice command** is clearly meant
+
+Do **not** mock or over-explain transcription errors; just restate the corrected intent clearly.
+
+## Example
+
+**User (voice):** `add a function that saves the transcript to a file called notes dot txt`
+
+**Assistant:** I understood you want to:
+> Add a function that saves the transcript to a file named `notes.txt`.
+
+Is that correct? Reply **confirm.** or **Confirm.** to proceed.
+
+**User:** `Confirm.`
+
+**Assistant:** *[implements the task]*

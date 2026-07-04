@@ -21,6 +21,141 @@ Review the diff or list of touched files and determine:
 4. **Removed or renamed paths** — remove stale references everywhere.
 5. **New env vars or secrets** — document in README.md setup; ensure `.gitignore` covers them.
 
+## Virtual environment (required convention)
+
+This project uses a **local venv** (`.venv/` at the repo root) for all Python work. Apply this everywhere:
+
+- **Documentation** — README.md setup steps must create `.venv`, activate it, then run `pip` / `python` inside it. Never instruct global `pip install` or system Python unless the user explicitly asks.
+- **Commands you run** — prefer `.venv/bin/python`, `.venv/bin/pip`, or `source .venv/bin/activate` before installs, tests, and `python main.py`.
+- **New dependencies** — add to `requirements.txt`; install with `pip install -r requirements.txt` from an activated venv.
+- **`.gitignore`** — keep `.venv/` ignored (already listed); do not commit the venv.
+
+When updating README.md run instructions, prefix steps with “with venv activated” or show activation once and state that later commands assume it.
+
+## Platform: macOS
+
+This app targets **macOS only**. When updating root docs:
+
+- **README.md** — state macOS requirement near the top or in setup; use Homebrew for PortAudio; do not add Windows/Linux setup unless the codebase explicitly supports them.
+- **architecture.html** — note macOS in the subtitle or a short platform line if relevant to the architecture.
+
+Do **not** add macOS notes to `.gitignore` or other files where platform is irrelevant.
+
+## PortAudio verification
+
+PyAudio depends on the system **PortAudio** library (via Homebrew on macOS). Keep README.md setup in sync:
+
+1. **Install** — `brew install portaudio` (system-level, before venv `pip install`).
+2. **Verify** — `brew list portaudio` should succeed and list PortAudio files before `pip install -r requirements.txt`.
+
+When audio/mic dependencies change, update the PortAudio install and verify steps in README.md and mention verification in this rule’s checklist.
+
+## CLI and microphone input
+
+The app starts via `main.py` and binds one input device for the whole session. Keep root docs aligned when this flow changes:
+
+| Step | Code | Document in… |
+|------|------|----------------|
+| List + pick input device | `VoiceToText.select_input_device()` in `app/voice_to_text.py` | README.md run section; architecture flow/components |
+| Session capture | `VoiceToText(device_index=…)` | README.md **Project files** table; architecture |
+| Start / stop listening | Click in Cursor Agent typing box → auto-start; `q` in Terminal to stop | README.md run section; `main.py` prompts |
+| Snap → Enter | Say `snap` after a pause → `pyautogui.press("enter")` | README run section; `main.py`; architecture |
+
+When adding or changing audio UX (device listing, default device, external mic notes, start/stop keys):
+
+- **README.md** — describe the startup sequence: device menu → Cursor Agent click → auto-listen → speak → Terminal + `q`.
+- **architecture.html** — update the high-level flow diagram and component cards if device selection or capture path changes.
+- **This rule** — extend the examples below if new patterns appear (e.g. saved device preference).
+
+Do **not** document `pkg-config`; PortAudio verification is `brew list portaudio` only.
+
+Do **not** describe recognized speech as printing to Terminal; it is typed at the cursor (see next section).
+
+## Text output at cursor
+
+Recognized speech is **typed where the cursor is focused** (any app), not printed to Terminal. Status and errors still use `print()` in Terminal.
+
+| Concern | Code / dep | Document in… |
+|---------|------------|--------------|
+| Simulated keystrokes | `VoiceToText._type_recognized_text()` | README **Project files**; architecture component card |
+| Keyboard simulation lib | `pyautogui` in `requirements.txt` | README setup step 4; architecture flow diagram |
+| macOS permission | Accessibility for Terminal | README **Prerequisites** (alongside Microphone) |
+| User workflow | Pick mic → Cursor Agent click → auto-listen → speak → Terminal + `q` | README run section; `main.py` prompts |
+| Thread safety | `_typing_lock` around `pyautogui.write()` | architecture only if implementation changes |
+| Phrase spacing | leading space between phrases when pause ≤ threshold | no user doc unless behavior changes |
+| Pause punctuation | `_try_emit_period_for_pause()`, `_pause_monitor_loop()` | README run section; architecture; this rule (below) |
+| Voice command | `SNAP_COMMAND`, `_is_snap_command()`, `_handle_snap_command()` | README run section; `main.py` prompts; architecture |
+| Errors only in Terminal | `print("[error] …")` in `_process_audio` | unchanged unless output path changes |
+
+When output delivery changes (terminal vs cursor vs clipboard):
+
+- Add or remove deps in `requirements.txt`; mirror in README **Project files** table.
+- Update architecture flow: mic → Google Speech → `_type_recognized_text()` → **focused app (cursor)** — not Terminal stdout.
+- README **Prerequisites**: **Microphone** + **Accessibility** for Terminal when using `pyautogui`.
+- Remove stale wording such as “prints to terminal” or “terminal output” for transcripts anywhere in root docs.
+
+## Pause punctuation
+
+Silence longer than **2 seconds** is typed once as **`. `** (period then space) at the cursor:
+
+| Pause duration | Typed | When |
+|----------------|-------|------|
+| ≤ 2 sec | (none) | short pause: leading space before next phrase only |
+| > 2 sec | `. ` then **Shift+Enter** | once per pause (not after snap) |
+
+Use a single shared flag (`_pause_period_emitted`) so the monitor and speech callback never both emit a period (no `..`).
+
+Constant: `VoiceToText.PAUSE_PERIOD_AFTER` (2.0). No comma logic.
+
+**Continuous listening:** `_on_audio` must return quickly; run `recognize_google` on a worker thread (`_process_audio`) so the mic keeps recording during API latency. Lock `energy_threshold` after calibration (`dynamic_energy_threshold = False`).
+
+When pause logic changes:
+
+- **README.md** — run section: document `. ` + Shift+Enter on long pause; snap → Enter + rule mention.
+- **architecture.html** — pause → `. ` → Shift+Enter; snap → Enter → `@voice-input-confirmation.mds `.
+- **main.py** prompts — keep in sync if user-facing wording changes.
+
+## Voice command: snap → Enter
+
+After a pause, if Google Speech transcribes the next phrase as exactly **`snap`**:
+
+| Rule | Detail |
+|------|--------|
+| Match | Whole phrase only, case-insensitive (`_normalized_phrase()` strips trailing `.,!?`) |
+| Action | **Enter** → wait `SNAP_RULE_DELAY` (0.5 s) → type `@voice-input-confirmation.mds ` — do not type snap |
+| No match | `"oh snap"`, `"snapshot"`, etc. → normal dictation via `_type_recognized_text()` |
+| Timing | Short clips (&lt; 2 s) use priority **0** in `_recognition_queue` for faster snap |
+| After snap | `_suppress_period_after_snap` — **no `. ` + Shift+Enter** until next dictation |
+
+| Code | Role |
+|------|------|
+| `VoiceToText.SNAP_COMMAND` | Constant `"snap"` — change in one place |
+| `_is_snap_command()` | Exact-match check |
+| `_handle_snap_command()` | Enter → `time.sleep(SNAP_RULE_DELAY)` → write rule mention |
+| `type_voice_rule_mention_at_cursor()` | Writes rule mention via pyautogui |
+| `wait_for_typing_window_click_and_type_rule_mention()` | After mic pick: wait for click → type mention (`pynput`) |
+| `_recognition_queue` / `_recognition_priority()` | Short audio (&lt; 2 s) processed before long phrases |
+| `_try_emit_period_for_pause()` | Skip when `_suppress_period_after_snap` is True |
+
+When the snap command changes:
+
+- **README.md** — run section bullet for snap → Enter.
+- **main.py** and `listen_and_transcribe()` banner — user-facing wording.
+- **architecture.html** — VoiceToText card or design principle.
+- **This rule** — update table and example below.
+
+## Session start prefix
+
+After **microphone selection**, wait for the user to **click** a typing window, then type:
+
+```text
+@voice-input-confirmation.mds 
+```
+
+Use `VoiceToText.wait_for_typing_window_click_and_type_rule_mention()` (`pynput` mouse listener). Print instructions first: open **Cursor Agent**, click the typing box, then wait for click. Do **not** type before mic selection or before the click.
+
+Also typed again after **snap** (Enter → 0.5 s delay). Constant: `VOICE_RULE_MENTION`.
+
 ## Files to update
 
 | File | Update when… |
@@ -38,6 +173,14 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 - [ ] Does the architecture diagram still match the code?
 - [ ] Does the README.md file table list every relevant file with an accurate one-line role?
 - [ ] Does `.gitignore` cover new generated or sensitive paths?
+- [ ] Do setup and run commands use `.venv` (not global Python/pip)?
+- [ ] Does README.md state **macOS only** and include PortAudio install + verification steps?
+- [ ] Does README.md describe the **startup flow** (mic → Cursor Agent click → auto-listen → Terminal + `q`) if CLI/audio code changed?
+- [ ] Does `architecture.html` reflect `VoiceToText.select_input_device()` and session-bound `device_index` when mic code changed?
+- [ ] Does cursor output doc mention **Accessibility**, `pyautogui`, and `_type_recognized_text()` (not Terminal print) for transcripts?
+- [ ] If pause punctuation changed, do README and architecture document `. ` + Shift+Enter after pause > 2 s?
+- [ ] Does startup flow document mic selection → **click** typing window → rule mention (not immediate on launch)?
+- [ ] If snap → Enter changed, do README, `main.py`, and architecture document post-pause **snap** pressing Enter (not typing the word), priority queue, and no `. ` after snap?
 
 ## Style
 
@@ -45,11 +188,39 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 - Prefer updating tables and diagram blocks over long prose.
 - Mark planned vs implemented components honestly in `architecture.html` (use status labels like `stub`, `active`, `planned`).
 
-## Example
+## Examples
 
-If a prompt adds `app/agents/command_router.py` and `requirements.txt`:
+### Device selection (`VoiceToText.select_input_device()`)
 
-1. Add `requirements.txt` install step in README.md if missing.
+1. README.md — run section: user picks from listed input devices before pressing Enter; mention external USB mics if relevant.
+2. README.md **Project files** — `main.py` (device selection + prompts); `app/voice_to_text.py` (`VoiceToText`, including `select_input_device()`).
+3. `architecture.html` — flow: `main.py` → `VoiceToText.select_input_device()` → `VoiceToText(device_index)` → transcript path.
+4. PortAudio steps unchanged unless new audio deps were added.
+
+### Cursor typing (`_type_recognized_text()` + `pyautogui`)
+
+1. `requirements.txt` — add `pyautogui`; README **Project files** lists it with SpeechRecognition and PyAudio.
+2. README **Prerequisites** — Accessibility for Terminal (in addition to Microphone).
+3. README run section — numbered steps: pick mic → Cursor Agent click → auto-listen → speak → Terminal + `q` to stop.
+4. `architecture.html` — diagram: transcript → `_type_recognized_text()` / pyautogui → focused app; VoiceToText card mentions typing methods.
+5. Do not say transcripts print to Terminal.
+
+### Pause punctuation (`. `)
+
+1. README run section — pause **> 2 s** → `. ` + Shift+Enter; snap → Enter + rule mention (not on pause alone).
+2. `architecture.html` — `_try_emit_period_for_pause()` uses `pyautogui.hotkey("shift", "enter")`.
+3. Constant `PAUSE_PERIOD_AFTER` — document threshold if it changes.
+
+### Snap command (say `snap` → Enter)
+
+1. `app/voice_to_text.py` — snap: Enter, `SNAP_RULE_DELAY`, then rule mention; suppress `. ` after snap.
+2. README — snap after pause; main.py types rule mention at startup.
+3. `main.py` + listening banner — mention snap command using `VoiceToText.SNAP_COMMAND`.
+4. `architecture.html` — VoiceToText card: snap after pause → Enter.
+
+### New agent module
+
+1. Add `requirements.txt` install step in README.md if missing (inside activated `.venv`).
 2. Add a row for `app/agents/command_router.py` in the Project files table.
 3. Extend the architecture diagram with an AI Agents box linked from transcript output.
 4. Add any new cache or log paths to `.gitignore` if introduced.
