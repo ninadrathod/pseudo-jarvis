@@ -37,9 +37,33 @@ When updating README.md run instructions, prefix steps with “with venv activat
 This app targets **macOS only**. When updating root docs:
 
 - **README.md** — state macOS requirement near the top or in setup; use Homebrew for PortAudio; do not add Windows/Linux setup unless the codebase explicitly supports them.
-- **architecture.html** — note macOS in the subtitle or a short platform line if relevant to the architecture.
+- **index.html** — note macOS in the subtitle or a short platform line if relevant to the architecture.
 
 Do **not** add macOS notes to `.gitignore` or other files where platform is irrelevant.
+
+## GitHub Pages site (`index.html`)
+
+Published project site at repo root (GitHub Pages). Keep in sync when UX or commands change:
+
+| File | Role |
+|------|------|
+| `index.html` | Landing page: hero, GitHub link, JARVIS vision, macOS + Cursor scope, architecture diagrams, command workflow tabs |
+| `styles.css` | Linked stylesheet (Jarvis-inspired dark theme); keep visual design here, not inline |
+
+**`index.html` sections (required):**
+
+1. **About** — project title, link to `https://github.com/ninadrathod/pseudo-jarvis`, brief explanation, Iron Man JARVIS vision, macOS + Cursor AI only (for now).
+2. **Architecture & tech stack** — high-level flow + component/tech cards.
+3. **Workflows** — diagram per feature/command: startup, dictation, pause punctuation, `send`, `freeze`, `resume`, stop (`q`).
+
+**Implementation notes:**
+
+- Use inline `<script>` in `index.html` for interactivity (e.g. Mermaid render, workflow tabs); link `styles.css` for CSS.
+- Do **not** add a separate JS file unless the user asks.
+- Update workflow diagrams when voice commands or stop behavior change.
+- **README.md** — **Project files** row for `index.html` and `styles.css`.
+
+Do **not** recreate `architecture.html`; the site file is **`index.html`** only.
 
 ## Local setup directory (`setup-variables/`)
 
@@ -56,7 +80,7 @@ Gitignored local config at the repo root, populated by `setup.sh`. Keep docs in 
 
 - **`.gitignore`** — include `setup-variables/` (entire directory).
 - **README.md** — **Project files** table: rows for `setup.sh` and `setup-variables/`; setup section documents `./setup.sh`.
-- **architecture.html** — directory layout diagram (`setup.sh`, `setup-variables/`).
+- **index.html** — workflow tabs and Mermaid diagrams when commands change; hero/platform scope if target OS or IDE changes.
 - **This rule** — update tables above if files are added or renamed.
 
 Do **not** commit contents of `setup-variables/`; document structure only.
@@ -76,16 +100,16 @@ The app starts via `main.py` and binds one input device for the whole session. K
 
 | Step | Code | Document in… |
 |------|------|----------------|
-| List + pick input device | `VoiceToText.select_input_device()` in `app/voice_to_text.py` | README.md run section; architecture flow/components |
-| Session capture | `VoiceToText(device_index=…)` | README.md **Project files** table; architecture |
+| List + pick input device | `VoiceToText.select_input_device()` in `app/voice_to_text.py` | README.md run section; index.html architecture |
+| Session capture | `VoiceToText(device_index=…)` | README.md **Project files** table; index.html |
 | Start / stop listening | Click in Cursor Agent typing box → auto-start; `q` in Terminal to stop | README.md run section; `main.py` prompts |
-| Send → Enter | Say `send` after a pause → Enter + rule mention | README run section; `main.py`; architecture |
-| Freeze / resume | Say `freeze` after pause → freeze dictation; `resume` (after freeze only) → click → rule mention → then dictate | README; architecture; this rule |
+| Send → Enter | Say `send` after a pause → Enter + rule mention | README run section; `main.py`; index.html workflows |
+| Freeze / resume | Say `freeze` after pause → freeze dictation; `resume` (after freeze only) → click → rule mention → then dictate | README; index.html; this rule |
 
 When adding or changing audio UX (device listing, default device, external mic notes, start/stop keys):
 
 - **README.md** — describe the startup sequence: device menu → Cursor Agent click → auto-listen → speak → Terminal + `q`.
-- **architecture.html** — update the high-level flow diagram and component cards if device selection or capture path changes.
+- **index.html** — update the high-level flow diagram and component cards if device selection or capture path changes.
 - **This rule** — extend the examples below if new patterns appear (e.g. saved device preference).
 
 Do **not** document `pkg-config`; PortAudio verification is `brew list portaudio` only.
@@ -98,20 +122,20 @@ Recognized speech is **typed where the cursor is focused** (any app), not printe
 
 | Concern | Code / dep | Document in… |
 |---------|------------|--------------|
-| Simulated keystrokes | `VoiceToText._type_recognized_text()` | README **Project files**; architecture component card |
-| Keyboard simulation lib | `pyautogui` in `requirements.txt` | README setup step 4; architecture flow diagram |
+| Simulated keystrokes | `VoiceToText._type_recognized_text()` | README **Project files**; index.html tech stack |
+| Keyboard simulation lib | `pyautogui` in `requirements.txt` | README setup step 4; index.html architecture diagram |
 | macOS permission | Accessibility for Terminal | README **Prerequisites** (alongside Microphone) |
 | User workflow | Pick mic → Cursor Agent click → auto-listen → speak → Terminal + `q` | README run section; `main.py` prompts |
-| Thread safety | `_typing_lock` around `pyautogui.write()` | architecture only if implementation changes |
+| Thread safety | `_typing_lock` around `pyautogui.write()` | index.html only if implementation changes |
 | Phrase spacing | leading space between phrases when pause ≤ threshold | no user doc unless behavior changes |
-| Pause punctuation | `_try_emit_period_for_pause()`, `_pause_monitor_loop()` | README run section; architecture; this rule (below) |
-| Voice command | `SEND_COMMAND`, `_is_send_command()`, `_handle_send_command()` | README run section; `main.py` prompts; architecture |
+| Pause punctuation | `_try_emit_period_for_pause()`, `_pause_monitor_loop()` | README run section; index.html; this rule (below) |
+| Voice command | `SEND_COMMAND`, `_is_send_command()`, `_handle_send_command()` | README run section; `main.py` prompts; index.html workflows |
 | Errors only in Terminal | `print("[error] …")` in `_process_audio` | unchanged unless output path changes |
 
 When output delivery changes (terminal vs cursor vs clipboard):
 
 - Add or remove deps in `requirements.txt`; mirror in README **Project files** table.
-- Update architecture flow: mic → Google Speech → `_type_recognized_text()` → **focused app (cursor)** — not Terminal stdout.
+- Update index.html flow: mic → Google Speech → `_type_recognized_text()` → **focused app (cursor)** — not Terminal stdout.
 - README **Prerequisites**: **Microphone** + **Accessibility** for Terminal when using `pyautogui`.
 - Remove stale wording such as “prints to terminal” or “terminal output” for transcripts anywhere in root docs.
 
@@ -133,7 +157,7 @@ Constant: `VoiceToText.PAUSE_PERIOD_AFTER` (2.0). No comma logic.
 When pause logic changes:
 
 - **README.md** — run section: document `. ` + Shift+Enter on long pause; send → Enter + rule mention.
-- **architecture.html** — pause → `. ` → Shift+Enter; send → Enter → `@voice-input-confirmation.mds `.
+- **index.html** — pause → `. ` → Shift+Enter; send → Enter → `@voice-input-confirmation.mds `.
 - **main.py** prompts — keep in sync if user-facing wording changes.
 
 ## Voice command: send → Enter
@@ -164,7 +188,7 @@ When the send command changes:
 
 - **README.md** — run section bullet for send → Enter.
 - **main.py** and `listen_and_transcribe()` banner — user-facing wording.
-- **architecture.html** — VoiceToText card or design principle.
+- **index.html** — VoiceToText card or design principle.
 - **This rule** — update table and example below.
 
 ## Session start prefix
@@ -185,7 +209,7 @@ Also typed again after **send** (Enter → 0.5 s delay). Constant: `VOICE_RULE_M
 |------|----------------|
 | `.gitignore` | New artifact types, build outputs, local data dirs, secret files, or IDE paths appear |
 | `README.md` | Setup steps change; new dependencies; new runnable commands; file roles change — keep the **Project files** table current |
-| `architecture.html` | Components, flows, directory layout, or design principles change |
+| `index.html` | Components, flows, directory layout, or design principles change |
 
 Do **not** rewrite these files from scratch each time. Make minimal, targeted edits that reflect the actual delta from the current prompt.
 
@@ -193,24 +217,24 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 
 - [ ] Did I add or remove anything under `app/` or new top-level dirs?
 - [ ] Did dependencies or run instructions change?
-- [ ] Does the architecture diagram still match the code?
+- [ ] Does `index.html` still match the code (diagrams, commands, platform scope)?
 - [ ] Does the README.md file table list every relevant file with an accurate one-line role?
 - [ ] Does `.gitignore` cover new generated or sensitive paths (including `setup-variables/`)?
 - [ ] Does README.md document `./setup.sh` when setup automation changes?
 - [ ] Do setup and run commands use `.venv` (not global Python/pip)?
 - [ ] Does README.md state **macOS only** and include PortAudio install + verification steps?
 - [ ] Does README.md describe the **startup flow** (mic → Cursor Agent click → auto-listen → Terminal + `q`) if CLI/audio code changed?
-- [ ] Does `architecture.html` reflect `VoiceToText.select_input_device()` and session-bound `device_index` when mic code changed?
+- [ ] Does `index.html` reflect `VoiceToText.select_input_device()` and session-bound `device_index` when mic code changed?
 - [ ] Does cursor output doc mention **Accessibility**, `pyautogui`, and `_type_recognized_text()` (not Terminal print) for transcripts?
-- [ ] If pause punctuation changed, do README and architecture document `. ` + Shift+Enter after pause > 2 s?
+- [ ] If pause punctuation changed, do README and index.html document `. ` + Shift+Enter after pause > 2 s?
 - [ ] Does startup flow document mic selection → **click** typing window → rule mention (not immediate on launch)?
-- [ ] If send → Enter changed, do README, `main.py`, and architecture document post-pause **send** pressing Enter (not typing the word), priority queue, and no `. ` after send?
+- [ ] If send → Enter changed, do README, `main.py`, and index.html document post-pause **send** pressing Enter (not typing the word), priority queue, and no `. ` after send?
 
 ## Style
 
 - Match existing tone and formatting in each root file.
 - Prefer updating tables and diagram blocks over long prose.
-- Mark planned vs implemented components honestly in `architecture.html` (use status labels like `stub`, `active`, `planned`).
+- Mark planned vs implemented components honestly in `index.html` (use status labels like `stub`, `active`, `planned`).
 
 ## Examples
 
@@ -218,7 +242,7 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 
 1. README.md — run section: user picks from listed input devices before pressing Enter; mention external USB mics if relevant.
 2. README.md **Project files** — `main.py` (device selection + prompts); `app/voice_to_text.py` (`VoiceToText`, including `select_input_device()`).
-3. `architecture.html` — flow: `main.py` → `VoiceToText.select_input_device()` → `VoiceToText(device_index)` → transcript path.
+3. `index.html` — flow: `main.py` → `VoiceToText.select_input_device()` → `VoiceToText(device_index)` → transcript path.
 4. PortAudio steps unchanged unless new audio deps were added.
 
 ### Cursor typing (`_type_recognized_text()` + `pyautogui`)
@@ -226,13 +250,13 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 1. `requirements.txt` — add `pyautogui`; README **Project files** lists it with SpeechRecognition and PyAudio.
 2. README **Prerequisites** — Accessibility for Terminal (in addition to Microphone).
 3. README run section — numbered steps: pick mic → Cursor Agent click → auto-listen → speak → Terminal + `q` to stop.
-4. `architecture.html` — diagram: transcript → `_type_recognized_text()` / pyautogui → focused app; VoiceToText card mentions typing methods.
+4. `index.html` — diagram: transcript → `_type_recognized_text()` / pyautogui → focused app; VoiceToText card mentions typing methods.
 5. Do not say transcripts print to Terminal.
 
 ### Pause punctuation (`. `)
 
 1. README run section — pause **> 2 s** → `. ` + Shift+Enter; send → Enter + rule mention (not on pause alone).
-2. `architecture.html` — `_try_emit_period_for_pause()` uses `pyautogui.hotkey("shift", "enter")`.
+2. `index.html` — `_try_emit_period_for_pause()` uses `pyautogui.hotkey("shift", "enter")`.
 3. Constant `PAUSE_PERIOD_AFTER` — document threshold if it changes.
 
 ### Send command (say `send` → Enter)
@@ -240,11 +264,11 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 1. `app/voice_to_text.py` — send: Enter, `SEND_RULE_DELAY`, then rule mention; suppress `. ` after send.
 2. README — send after pause; main.py types rule mention at startup.
 3. `main.py` + listening banner — mention send command using `VoiceToText.SEND_COMMAND`.
-4. `architecture.html` — VoiceToText card: send after pause → Enter.
+4. `index.html` — VoiceToText card: send after pause → Enter.
 
 ### New agent module
 
 1. Add `requirements.txt` install step in README.md if missing (inside activated `.venv`).
 2. Add a row for `app/agents/command_router.py` in the Project files table.
-3. Extend the architecture diagram with an AI Agents box linked from transcript output.
+3. Extend the index.html architecture diagram with an AI Agents box linked from transcript output.
 4. Add any new cache or log paths to `.gitignore` if introduced.
