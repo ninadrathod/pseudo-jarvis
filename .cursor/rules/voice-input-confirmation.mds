@@ -7,6 +7,8 @@ alwaysApply: true
 
 User messages in this project may come from **pseudo-jarvis** (audio-to-text at the cursor) or be pasted from dictation. Assume input can be imperfect: missing punctuation, homophones, run-on phrases, or extra spaces.
 
+When pseudo-jarvis attaches this rule in chat, it pastes `@voice-input-confirmation.mds` followed by a **space**, waits **0.3 seconds**, then presses **Enter** so Cursor accepts the `@` rule mention.
+
 ## Default behavior (every user message)
 
 1. **Assume voice origin** — treat the user's message as if it were spoken and transcribed, unless they clearly typed a precise technical command (e.g. a single file path, shell command, or code block they pasted intentionally).

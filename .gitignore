@@ -29,7 +29,6 @@ env/
 # Environment and secrets
 .env
 .env.*
-!.env.example
 
 # IDE and editor
 .idea/
@@ -57,6 +56,11 @@ temp/
 
 # Local setup (gitignored)
 setup-variables/
+
+# PyInstaller app bundle output
+build/
+dist/
+*.spec
 
 # Audio artifacts (generated during development)
 recordings/
