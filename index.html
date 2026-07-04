@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="pseudo-jarvis — voice-to-text for Cursor Agent on macOS. Talk to your AI like Tony Stark talks to JARVIS.">
+  <title>pseudo-jarvis · Voice → Cursor Agent</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a class="logo" href="#top">
+        <span class="logo-mark" aria-hidden="true"></span>
+        pseudo-jarvis
+      </a>
+      <nav aria-label="Page sections">
+        <ul>
+          <li><a href="#about">About</a></li>
+          <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#workflows">Workflows</a></li>
+          <li><a href="https://github.com/ninadrathod/pseudo-jarvis" target="_blank" rel="noopener">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- 1) Project intro -->
+    <section class="hero container" id="about">
+      <div class="hero-badge">
+        <span>●</span> macOS · Cursor AI · Voice-first
+      </div>
+      <h1>pseudo-jarvis</h1>
+      <p class="hero-tagline">
+        Real-time voice dictation that types directly into <strong>Cursor Agent</strong> —
+        the first step toward a personal AI you can simply <em>talk to</em>.
+      </p>
+      <blockquote class="hero-vision">
+        The goal is an Iron Man–style <em>JARVIS</em>: speak naturally, and your AI assistant
+        understands intent, confirms when needed, and acts. Today this project wires
+        <strong>voice → text → Cursor</strong>; tomorrow it layers agents on top of that stream.
+      </blockquote>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://github.com/ninadrathod/pseudo-jarvis" target="_blank" rel="noopener">
+          View on GitHub →
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/ninadrathod/pseudo-jarvis#setup" target="_blank" rel="noopener">
+          Setup guide (README)
+        </a>
+      </div>
+      <div class="platform-pills">
+        <span class="pill active">macOS only</span>
+        <span class="pill active">Cursor Agent</span>
+        <span class="pill planned">Linux / Windows — planned</span>
+        <span class="pill planned">Other IDEs — planned</span>
+      </div>
+    </section>
+
+    <!-- 2) Architecture & tech stack -->
+    <section class="container" id="architecture">
+      <p class="section-label">02 — System design</p>
+      <h2>Architecture &amp; tech stack</h2>
+      <p class="section-intro">
+        A Python CLI captures speech, transcribes via Google Speech Recognition, and simulates
+        keystrokes into whichever app has focus — designed for Cursor Agent on macOS.
+      </p>
+
+      <div class="card-grid">
+        <div class="card">
+          <h3>Runtime <span class="status status-active">active</span></h3>
+          <ul>
+            <li>Python 3 + <code>.venv</code></li>
+            <li><code>main.py</code> entry point</li>
+            <li><code>VoiceToText</code> in <code>app/voice_to_text.py</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Audio &amp; speech <span class="status status-active">active</span></h3>
+          <ul>
+            <li>PortAudio (Homebrew)</li>
+            <li>PyAudio + SpeechRecognition</li>
+            <li>Google Speech API (online)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Cursor integration <span class="status status-active">active</span></h3>
+          <ul>
+            <li>pyautogui + pynput</li>
+            <li>Paste <code>@voice-input-confirmation.mds</code></li>
+            <li>Agent rule confirms intent</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>AI agents <span class="status status-planned">planned</span></h3>
+          <p>Task runners, automations, and multi-step reasoning built on the voice transcript pipeline.</p>
+        </div>
+      </div>
+
+      <div class="diagram-panel">
+        <h3>High-level data flow</h3>
+        <pre class="mermaid">
+flowchart LR
+  subgraph Input
+    MIC[Microphone]
+    TERM[Terminal q to stop]
+  end
+  subgraph pseudo_jarvis
+    MAIN[main.py]
+    VTT[VoiceToText]
+    QUEUE[Priority queue]
+    SR[Google Speech API]
+  end
+  subgraph Output
+    CUR[Cursor Agent typing box]
+  end
+  MIC --> VTT
+  MAIN --> VTT
+  VTT --> QUEUE --> SR
+  SR --> VTT
+  VTT -->|pyautogui / paste| CUR
+  TERM -->|stop| VTT
+        </pre>
+      </div>
+
+      <div class="diagram-panel">
+        <h3>Component map</h3>
+        <pre class="mermaid">
+flowchart TB
+  subgraph Startup
+    A[select_input_device] --> B[wait for click]
+    B --> C[type rule mention]
+    C --> D[listen_and_transcribe]
+  end
+  subgraph Dictation
+    D --> E[_on_audio callback]
+    E --> F[_recognition_worker]
+    F --> G{command?}
+    G -->|speech| H[_type_recognized_text]
+    G -->|send| I[Enter + rule mention]
+    G -->|freeze| J[halt typing]
+    G -->|resume| K[click + rule mention]
+  end
+  H --> CUR[(Cursor focus)]
+  I --> CUR
+  K --> CUR
+        </pre>
+      </div>
+    </section>
+
+    <!-- 3) Workflows -->
+    <section class="container" id="workflows">
+      <p class="section-label">03 — How it works</p>
+      <h2>Command &amp; feature workflows</h2>
+      <p class="section-intro">
+        Voice commands are matched as whole phrases after a pause. Click the tabs below to see each flow.
+      </p>
+
+      <div class="workflow-nav" role="tablist" aria-label="Workflow diagrams">
+        <button class="workflow-tab active" data-panel="startup" role="tab" aria-selected="true">Startup</button>
+        <button class="workflow-tab" data-panel="dictation" role="tab">Dictation</button>
+        <button class="workflow-tab" data-panel="pause" role="tab">Pause punctuation</button>
+        <button class="workflow-tab" data-panel="send" role="tab">send</button>
+        <button class="workflow-tab" data-panel="freeze" role="tab">freeze</button>
+        <button class="workflow-tab" data-panel="resume" role="tab">resume</button>
+        <button class="workflow-tab" data-panel="stop" role="tab">Stop (q)</button>
+      </div>
+
+      <div class="workflow-panel active" id="panel-startup" role="tabpanel">
+        <div class="diagram-panel">
+          <h3>Session startup</h3>
+          <pre class="mermaid">
+sequenceDiagram
+  actor User
+  participant Term as Terminal
+  participant App as VoiceToText
+  participant Cursor as Cursor Agent
+  User->>Term: python main.py
+  Term->>User: pick microphone
+  User->>Cursor: click typing box
+  App->>Cursor: paste @voice-input-confirmation.mds
+  App->>App: start listening
+  User->>Cursor: speak — text appears at cursor
+          </pre>
+        </div>
+      </div>
+
+      <div class="workflow-panel" id="panel-dictation" role="tabpanel">
+        <div class="diagram-panel">
+          <h3>Continuous dictation</h3>
+          <pre class="mermaid">
+flowchart LR
+  A[Speech chunk] --> B[Google transcribe]
+  B --> C{voice command?}
+  C -->|no| D[Type at cursor]
+  C -->|yes| E[Run command handler]
+  D --> F[Short pause joins with space]
+  F --> G[Keep listening]
+          </pre>
+        </div>
+      </div>
+
+      <div class="workflow-panel" id="panel-pause" role="tabpanel">
+        <div class="diagram-panel">
+          <h3>Pause &gt; 2 seconds</h3>
+          <pre class="mermaid">
+flowchart TD
+  A[Silence exceeds 2 s] --> B[Type period and space]
+  B --> C[Shift+Enter new line in Cursor]
+  C --> D[Next phrase types without leading space]
+          </pre>
+        </div>
+        <table class="command-table">
+          <thead><tr><th>Trigger</th><th>Action</th><th>Typed</th></tr></thead>
+          <tbody>
+            <tr><td>Pause &gt; 2 s (once per pause)</td><td>Sentence break</td><td><code>. </code> + Shift+Enter</td></tr>
+            <tr><td>Pause ≤ 2 s</td><td>Same thought</td><td>space + next words</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="workflow-panel" id="panel-send" role="tabpanel">
+        <div class="diagram-panel">
+          <h3>send — submit message</h3>
+          <pre class="mermaid">
+sequenceDiagram
+  actor User
+  participant App as VoiceToText
+  participant Cursor as Cursor Agent
+  User->>App: say "send" after pause
+  App->>Cursor: Enter
+  Note over App: wait 0.5 s
+  App->>Cursor: paste @voice-input-confirmation.mds
+  Note over Cursor: Agent asks for confirm.
+          </pre>
+        </div>
+      </div>
+
+      <div class="workflow-panel" id="panel-freeze" role="tabpanel">
+        <div class="diagram-panel">
+          <h3>freeze — pause dictation</h3>
+          <pre class="mermaid">
+flowchart TD
+  A[Say freeze after pause] --> B[Dictation halted]
+  B --> C[Mic still listens]
+  C --> D[Only resume accepted]
+  B --> E[No text typed at cursor]
+          </pre>
+        </div>
+      </div>
+
+      <div class="workflow-panel" id="panel-resume" role="tabpanel">
+        <div class="diagram-panel">
+          <h3>resume — continue after freeze</h3>
+          <pre class="mermaid">
+sequenceDiagram
+  actor User
+  participant App as VoiceToText
+  participant Cursor as Cursor Agent
+  User->>App: say "resume" after pause
+  App->>User: click typing box
+  User->>Cursor: click
+  App->>Cursor: paste @voice-input-confirmation.mds
+  App->>App: enable dictation
+  User->>Cursor: speak again
+          </pre>
+        </div>
+      </div>
+
+      <div class="workflow-panel" id="panel-stop" role="tabpanel">
+        <div class="diagram-panel">
+          <h3>Stop session — press q in Terminal</h3>
+          <pre class="mermaid">
+flowchart TD
+  A[Press q in Terminal] --> B[stop sets flag]
+  B --> C[Mic listener stops]
+  C --> D[Queue drained]
+  D --> E[No further typing or paste]
+  E --> F[Session ended message]
+          </pre>
+        </div>
+      </div>
+
+      <table class="command-table">
+        <thead>
+          <tr><th>Command / key</th><th>When</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>send</code></td><td>After pause</td><td>Enter → rule mention → agent confirmation</td></tr>
+          <tr><td><code>freeze</code></td><td>After pause</td><td>Stop typing; mic listens for resume</td></tr>
+          <tr><td><code>resume</code></td><td>After freeze</td><td>Click → rule mention → dictate again</td></tr>
+          <tr><td><code>q</code></td><td>Terminal focused</td><td>End session; zero keystrokes after stop</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>
+        <a href="https://github.com/ninadrathod/pseudo-jarvis">ninadrathod/pseudo-jarvis</a>
+        · Built for macOS + Cursor · Published via GitHub Pages
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "dark",
+      themeVariables: {
+        primaryColor: "#111827",
+        primaryTextColor: "#e8eef7",
+        primaryBorderColor: "#00d4ff",
+        lineColor: "#8b9cb3",
+        secondaryColor: "#1a2332",
+        tertiaryColor: "#0a0e17",
+        fontFamily: "Segoe UI, system-ui, sans-serif"
+      },
+      flowchart: { curve: "basis", padding: 16 },
+      sequence: { actorMargin: 40, messageMargin: 35 }
+    });
+
+    async function renderMermaidIn(container) {
+      const nodes = container.querySelectorAll("pre.mermaid");
+      for (const node of nodes) {
+        const graph = node.textContent.trim();
+        const id = "mmd-" + Math.random().toString(36).slice(2, 9);
+        try {
+          const { svg } = await mermaid.render(id, graph);
+          node.outerHTML = '<div class="mermaid">' + svg + "</div>";
+        } catch (err) {
+          node.outerHTML = "<p style=\"color:#ff6b6b\">Diagram error: " + err.message + "</p>";
+        }
+      }
+    }
+
+    document.querySelectorAll(".workflow-tab").forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        document.querySelectorAll(".workflow-tab").forEach(function (t) {
+          t.classList.remove("active");
+          t.setAttribute("aria-selected", "false");
+        });
+        document.querySelectorAll(".workflow-panel").forEach(function (p) {
+          p.classList.remove("active");
+        });
+        tab.classList.add("active");
+        tab.setAttribute("aria-selected", "true");
+        var panel = document.getElementById("panel-" + tab.dataset.panel);
+        panel.classList.add("active");
+        renderMermaidIn(panel);
+      });
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+      renderMermaidIn(document.getElementById("architecture"));
+      renderMermaidIn(document.getElementById("panel-startup"));
+    });
+  </script>
+</body>
+</html>

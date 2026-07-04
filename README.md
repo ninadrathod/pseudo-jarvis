@@ -80,6 +80,7 @@ Voice-to-text converter powered with AI agents. **macOS only.**
 | `setup-variables/` | Local setup (gitignored): `mds-path.txt`, `subscribed-projects.txt` (written by `setup.sh`) |
 | `.venv/` | Local Python virtual environment (gitignored); use for all `pip` and `python` commands |
 | `README.md` | Setup instructions and this file reference table |
-| `architecture.html` | Visual overview of how components connect |
+| `index.html` | GitHub Pages site: project overview, architecture diagrams, command workflows (`styles.css` linked) |
+| `styles.css` | Stylesheet for `index.html` (GitHub Pages) |
 | `.cursor/rules/sync-root-docs.mds` | Agent rule: keeps root docs in sync when the codebase changes |
 | `.cursor/rules/voice-input-confirmation.mds` | Agent rule: assume voice input, confirm intent; proceed on **confirm.** / **Confirm.** |
