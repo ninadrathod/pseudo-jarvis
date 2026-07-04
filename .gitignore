@@ -55,6 +55,9 @@ logs/
 tmp/
 temp/
 
+# Local setup (gitignored)
+setup-variables/
+
 # Audio artifacts (generated during development)
 recordings/
 *.wav

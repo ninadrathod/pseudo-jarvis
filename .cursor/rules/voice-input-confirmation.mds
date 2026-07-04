@@ -54,7 +54,7 @@ When restating intent, silently normalize obvious dictation issues:
 
 - Homophones (there/their, to/two/too)
 - Missing periods or commas
-- `"snap"` vs `"Snap"` — in chat, treat as speech unless the codebase snap **voice command** is clearly meant
+- `"send"` vs `"Send"` — in chat, treat as speech unless the codebase send **voice command** is clearly meant
 
 Do **not** mock or over-explain transcription errors; just restate the corrected intent clearly.
 

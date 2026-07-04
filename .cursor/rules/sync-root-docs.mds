@@ -41,6 +41,26 @@ This app targets **macOS only**. When updating root docs:
 
 Do **not** add macOS notes to `.gitignore` or other files where platform is irrelevant.
 
+## Local setup directory (`setup-variables/`)
+
+Gitignored local config at the repo root, populated by `setup.sh`. Keep docs in sync when paths or filenames change:
+
+| Path | Role |
+|------|------|
+| `setup-variables/mds-path.txt` | Absolute path to `voice-input-confirmation.mds` (not committed) |
+| `setup-variables/subscribed-projects.txt` | Project root directory path (not committed) |
+
+| Script | Role |
+|--------|------|
+| `setup.sh` | Creates `setup-variables/`, writes path files, creates `.venv`, `pip install -r requirements.txt`, prints **Setup complete.** |
+
+- **`.gitignore`** — include `setup-variables/` (entire directory).
+- **README.md** — **Project files** table: rows for `setup.sh` and `setup-variables/`; setup section documents `./setup.sh`.
+- **architecture.html** — directory layout diagram (`setup.sh`, `setup-variables/`).
+- **This rule** — update tables above if files are added or renamed.
+
+Do **not** commit contents of `setup-variables/`; document structure only.
+
 ## PortAudio verification
 
 PyAudio depends on the system **PortAudio** library (via Homebrew on macOS). Keep README.md setup in sync:
@@ -59,7 +79,8 @@ The app starts via `main.py` and binds one input device for the whole session. K
 | List + pick input device | `VoiceToText.select_input_device()` in `app/voice_to_text.py` | README.md run section; architecture flow/components |
 | Session capture | `VoiceToText(device_index=…)` | README.md **Project files** table; architecture |
 | Start / stop listening | Click in Cursor Agent typing box → auto-start; `q` in Terminal to stop | README.md run section; `main.py` prompts |
-| Snap → Enter | Say `snap` after a pause → `pyautogui.press("enter")` | README run section; `main.py`; architecture |
+| Send → Enter | Say `send` after a pause → Enter + rule mention | README run section; `main.py`; architecture |
+| Freeze / resume | Say `freeze` after pause → freeze dictation; `resume` (after freeze only) → click → rule mention → then dictate | README; architecture; this rule |
 
 When adding or changing audio UX (device listing, default device, external mic notes, start/stop keys):
 
@@ -84,7 +105,7 @@ Recognized speech is **typed where the cursor is focused** (any app), not printe
 | Thread safety | `_typing_lock` around `pyautogui.write()` | architecture only if implementation changes |
 | Phrase spacing | leading space between phrases when pause ≤ threshold | no user doc unless behavior changes |
 | Pause punctuation | `_try_emit_period_for_pause()`, `_pause_monitor_loop()` | README run section; architecture; this rule (below) |
-| Voice command | `SNAP_COMMAND`, `_is_snap_command()`, `_handle_snap_command()` | README run section; `main.py` prompts; architecture |
+| Voice command | `SEND_COMMAND`, `_is_send_command()`, `_handle_send_command()` | README run section; `main.py` prompts; architecture |
 | Errors only in Terminal | `print("[error] …")` in `_process_audio` | unchanged unless output path changes |
 
 When output delivery changes (terminal vs cursor vs clipboard):
@@ -101,7 +122,7 @@ Silence longer than **2 seconds** is typed once as **`. `** (period then space) 
 | Pause duration | Typed | When |
 |----------------|-------|------|
 | ≤ 2 sec | (none) | short pause: leading space before next phrase only |
-| > 2 sec | `. ` then **Shift+Enter** | once per pause (not after snap) |
+| > 2 sec | `. ` then **Shift+Enter** | once per pause (not after send) |
 
 Use a single shared flag (`_pause_period_emitted`) so the monitor and speech callback never both emit a period (no `..`).
 
@@ -111,35 +132,37 @@ Constant: `VoiceToText.PAUSE_PERIOD_AFTER` (2.0). No comma logic.
 
 When pause logic changes:
 
-- **README.md** — run section: document `. ` + Shift+Enter on long pause; snap → Enter + rule mention.
-- **architecture.html** — pause → `. ` → Shift+Enter; snap → Enter → `@voice-input-confirmation.mds `.
+- **README.md** — run section: document `. ` + Shift+Enter on long pause; send → Enter + rule mention.
+- **architecture.html** — pause → `. ` → Shift+Enter; send → Enter → `@voice-input-confirmation.mds `.
 - **main.py** prompts — keep in sync if user-facing wording changes.
 
-## Voice command: snap → Enter
+## Voice command: send → Enter
 
-After a pause, if Google Speech transcribes the next phrase as exactly **`snap`**:
+After a pause, if Google Speech transcribes the next phrase as exactly **`send`**:
 
 | Rule | Detail |
 |------|--------|
 | Match | Whole phrase only, case-insensitive (`_normalized_phrase()` strips trailing `.,!?`) |
-| Action | **Enter** → wait `SNAP_RULE_DELAY` (0.5 s) → type `@voice-input-confirmation.mds ` — do not type snap |
-| No match | `"oh snap"`, `"snapshot"`, etc. → normal dictation via `_type_recognized_text()` |
-| Timing | Short clips (&lt; 2 s) use priority **0** in `_recognition_queue` for faster snap |
-| After snap | `_suppress_period_after_snap` — **no `. ` + Shift+Enter** until next dictation |
+| Action | **Enter** → wait `SEND_RULE_DELAY` (0.5 s) → type `@voice-input-confirmation.mds ` — do not type send |
+| No match | `"oh send"`, `"snapshot"`, etc. → normal dictation via `_type_recognized_text()` |
+| Timing | Short clips (&lt; 2 s) use priority **0** in `_recognition_queue` for faster send |
+| After send | `_suppress_period_after_send` — **no `. ` + Shift+Enter** until next dictation |
 
 | Code | Role |
 |------|------|
-| `VoiceToText.SNAP_COMMAND` | Constant `"snap"` — change in one place |
-| `_is_snap_command()` | Exact-match check |
-| `_handle_snap_command()` | Enter → `time.sleep(SNAP_RULE_DELAY)` → write rule mention |
-| `type_voice_rule_mention_at_cursor()` | Writes rule mention via pyautogui |
+| `VoiceToText.SEND_COMMAND` | Constant `"send"` — change in one place |
+| `_is_send_command()` | Exact-match check |
+| `_handle_send_command()` | Enter → `time.sleep(SEND_RULE_DELAY)` → write rule mention |
+| `type_voice_rule_mention_at_cursor()` | Pastes rule mention via pbcopy + Cmd+V (reliable `@`) |
 | `wait_for_typing_window_click_and_type_rule_mention()` | After mic pick: wait for click → type mention (`pynput`) |
 | `_recognition_queue` / `_recognition_priority()` | Short audio (&lt; 2 s) processed before long phrases |
-| `_try_emit_period_for_pause()` | Skip when `_suppress_period_after_snap` is True |
+| `_try_emit_period_for_pause()` | Skip when `_suppress_period_after_send` is True |
 
-When the snap command changes:
+Code: `FREEZE_COMMAND`, `RESUME_COMMAND`, `_handle_freeze_command()`, `_handle_resume_command()`, `_complete_resume_setup()`. Mic stays on during freeze so **resume** can be heard. After **resume**: wait for click → type rule mention → then start dictation (`_dictation_halted = False`). **`q`**: `stop()` stops mic, drains queue, joins worker — no further typing (`_session_active()`, `_with_typing_if_active()`).
 
-- **README.md** — run section bullet for snap → Enter.
+When the send command changes:
+
+- **README.md** — run section bullet for send → Enter.
 - **main.py** and `listen_and_transcribe()` banner — user-facing wording.
 - **architecture.html** — VoiceToText card or design principle.
 - **This rule** — update table and example below.
@@ -154,7 +177,7 @@ After **microphone selection**, wait for the user to **click** a typing window, 
 
 Use `VoiceToText.wait_for_typing_window_click_and_type_rule_mention()` (`pynput` mouse listener). Print instructions first: open **Cursor Agent**, click the typing box, then wait for click. Do **not** type before mic selection or before the click.
 
-Also typed again after **snap** (Enter → 0.5 s delay). Constant: `VOICE_RULE_MENTION`.
+Also typed again after **send** (Enter → 0.5 s delay). Constant: `VOICE_RULE_MENTION`.
 
 ## Files to update
 
@@ -172,7 +195,8 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 - [ ] Did dependencies or run instructions change?
 - [ ] Does the architecture diagram still match the code?
 - [ ] Does the README.md file table list every relevant file with an accurate one-line role?
-- [ ] Does `.gitignore` cover new generated or sensitive paths?
+- [ ] Does `.gitignore` cover new generated or sensitive paths (including `setup-variables/`)?
+- [ ] Does README.md document `./setup.sh` when setup automation changes?
 - [ ] Do setup and run commands use `.venv` (not global Python/pip)?
 - [ ] Does README.md state **macOS only** and include PortAudio install + verification steps?
 - [ ] Does README.md describe the **startup flow** (mic → Cursor Agent click → auto-listen → Terminal + `q`) if CLI/audio code changed?
@@ -180,7 +204,7 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 - [ ] Does cursor output doc mention **Accessibility**, `pyautogui`, and `_type_recognized_text()` (not Terminal print) for transcripts?
 - [ ] If pause punctuation changed, do README and architecture document `. ` + Shift+Enter after pause > 2 s?
 - [ ] Does startup flow document mic selection → **click** typing window → rule mention (not immediate on launch)?
-- [ ] If snap → Enter changed, do README, `main.py`, and architecture document post-pause **snap** pressing Enter (not typing the word), priority queue, and no `. ` after snap?
+- [ ] If send → Enter changed, do README, `main.py`, and architecture document post-pause **send** pressing Enter (not typing the word), priority queue, and no `. ` after send?
 
 ## Style
 
@@ -207,16 +231,16 @@ Do **not** rewrite these files from scratch each time. Make minimal, targeted ed
 
 ### Pause punctuation (`. `)
 
-1. README run section — pause **> 2 s** → `. ` + Shift+Enter; snap → Enter + rule mention (not on pause alone).
+1. README run section — pause **> 2 s** → `. ` + Shift+Enter; send → Enter + rule mention (not on pause alone).
 2. `architecture.html` — `_try_emit_period_for_pause()` uses `pyautogui.hotkey("shift", "enter")`.
 3. Constant `PAUSE_PERIOD_AFTER` — document threshold if it changes.
 
-### Snap command (say `snap` → Enter)
+### Send command (say `send` → Enter)
 
-1. `app/voice_to_text.py` — snap: Enter, `SNAP_RULE_DELAY`, then rule mention; suppress `. ` after snap.
-2. README — snap after pause; main.py types rule mention at startup.
-3. `main.py` + listening banner — mention snap command using `VoiceToText.SNAP_COMMAND`.
-4. `architecture.html` — VoiceToText card: snap after pause → Enter.
+1. `app/voice_to_text.py` — send: Enter, `SEND_RULE_DELAY`, then rule mention; suppress `. ` after send.
+2. README — send after pause; main.py types rule mention at startup.
+3. `main.py` + listening banner — mention send command using `VoiceToText.SEND_COMMAND`.
+4. `architecture.html` — VoiceToText card: send after pause → Enter.
 
 ### New agent module
 

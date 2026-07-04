@@ -17,7 +17,8 @@ def main() -> None:
 
     print("  Listening — speak in Cursor Agent.")
     print('  Pause > 2 s → ". " then Shift+Enter.')
-    print(f'  Say "{VoiceToText.SNAP_COMMAND}" after a pause → Enter, then {rule_mention} ')
+    print(f'  Say "{VoiceToText.SEND_COMMAND}" after a pause → Enter, then {rule_mention} ')
+    print(f'  Say "{VoiceToText.FREEZE_COMMAND}" after a pause → freeze; "{VoiceToText.RESUME_COMMAND}" → resume')
     print(f'  To stop, switch to Terminal and press "{stop_key}".')
     print()
 
