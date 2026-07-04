@@ -1,0 +1,4 @@
+SpeechRecognition>=3.10.0
+PyAudio>=0.2.14
+pyautogui>=0.9.54
+pynput>=1.7.7

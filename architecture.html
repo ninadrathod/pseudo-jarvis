@@ -75,25 +75,31 @@
 </head>
 <body>
   <h1>pseudo-jarvis</h1>
-  <p class="subtitle">Voice-to-text converter powered with AI agents</p>
+  <p class="subtitle">Voice-to-text converter powered with AI agents · macOS only</p>
 
   <h2>High-level flow</h2>
-  <div class="diagram">┌─────────────┐     ┌──────────────────┐     ┌─────────────┐     ┌──────────────┐
-│  Microphone │ ──▶ │  VoiceToText     │ ──▶ │  Transcript │ ──▶ │  AI Agents   │
-│  / Audio    │     │  (app/voice_     │     │  (text)     │     │  (planned)   │
-│  input      │     │   to_text.py)    │     │             │     │              │
-└─────────────┘     └──────────────────┘     └─────────────┘     └──────────────┘
-                              │
-                              ▼
-                    Speech recognition /
-                    audio preprocessing
-                    (to be implemented)</div>
+  <div class="diagram">┌─────────────┐     ┌─────────────────────┐     ┌──────────────────┐
+│   main.py   │ ──▶ │ VoiceToText.        │ ──▶ │  VoiceToText     │
+│  (startup)  │     │ select_input_device │     │  device_index    │
+└─────────────┘     └─────────────────────┘     └────────┬─────────┘
+                                                           │
+                         ┌─────────────────────────────────┘
+                         ▼
+              ┌─────────────────┐     ┌─────────────┐     ┌──────────────┐
+              │  Microphone     │ ──▶ │  Transcript │ ──▶ │  Focused app │
+              │  (chosen device)│     │  (text)     │     │  (cursor)    │
+              └─────────────────┘     └──────┬──────┘     └──────────────┘
+                         │                    │
+                         ▼                    ▼
+               Google Speech API      pause: .  + Shift+Enter
+               (via SpeechRecognition) snap: Enter → @voice-input-confirmation.mds
+                                        main.py start: rule mention</div>
 
   <h2>Components</h2>
   <div class="card-grid">
     <div class="card">
-      <h3>VoiceToText <span class="status status-active">stub</span></h3>
-      <p>Entry point for voice capture and transcription. Lives in <code>app/voice_to_text.py</code>.</p>
+      <h3>VoiceToText <span class="status status-active">active</span></h3>
+      <p>Mic → Cursor Agent click → rule mention + listen. Pause &gt; 2 s → <code>. </code> + Shift+Enter. <code>snap</code> → Enter + rule mention. <code>q</code> in Terminal to stop.</p>
     </div>
     <div class="card">
       <h3>AI Agents <span class="status status-planned">planned</span></h3>
@@ -111,10 +117,14 @@
 
   <h2>Directory layout</h2>
   <div class="diagram">pseudo-jarvis/
+├── main.py                 # CLI: mic → click → listen; q to stop
 ├── app/
-│   └── voice_to_text.py    # VoiceToText class
+│   └── voice_to_text.py    # VoiceToText (select_input_device, listen, stop)
+├── requirements.txt        # SpeechRecognition, PyAudio, pyautogui, pynput
+├── .venv/                  # Local venv (gitignored) — all pip/python commands
 ├── .cursor/rules/
-│   └── sync-root-docs.mds  # Keeps root docs updated per change
+│   ├── sync-root-docs.mds           # Keeps root docs updated per change
+│   └── voice-input-confirmation.mds # Confirm voice-transcribed intent before acting
 ├── .gitignore
 ├── README.md               # Setup + file reference
 └── architecture.html       # This document</div>
@@ -123,9 +133,16 @@
   <ul>
     <li><strong>Separation of concerns</strong> — audio/transcription logic stays in <code>VoiceToText</code>; agent logic will live in separate modules.</li>
     <li><strong>Incremental build</strong> — start with a working transcription path, then layer agents on top of stable text output.</li>
+    <li><strong>Session-bound mic</strong> — user picks an input device once at startup; the same <code>device_index</code> is used for the whole run.</li>
+    <li><strong>macOS target</strong> — microphone I/O via PortAudio (Homebrew); verify with <code>brew list portaudio</code>.</li>
+    <li><strong>Isolated Python env</strong> — use <code>.venv/</code> for dependencies and runs; avoid global <code>pip</code> installs.</li>
+    <li><strong>Voice command</strong> — after a pause, say <code>snap</code> to press Enter immediately (priority queue); no <code>. </code> after snap until dictation resumes.</li>
+    <li><strong>Session prefix</strong> — after mic pick + click in typing window, type <code>@voice-input-confirmation.mds </code>; <code>snap</code> types it again after Enter.</li>
+    <li><strong>Pause punctuation</strong> — silence &gt; 2 s → <code>. </code> + Shift+Enter; Enter alone is only via <code>snap</code>.</li>
+    <li><strong>Cursor output</strong> — transcripts go to the focused app via <code>_type_at_cursor()</code> / <code>pyautogui</code>; Terminal shows status and errors only.</li>
     <li><strong>Living documentation</strong> — root-level docs are updated whenever the codebase changes (see <code>sync-root-docs.mds</code>).</li>
   </ul>
 
-  <footer>Last aligned with initial project scaffold — update when new modules or integrations are added.</footer>
+  <footer>Last aligned with pause Shift+Enter, snap Enter+rule mention, main.py startup prefix.</footer>
 </body>
 </html>
